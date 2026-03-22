@@ -92,7 +92,3 @@ functions/          # Firebase Cloud Functions (matching, trip completion, incid
 - Video never stored; verification badge is permanent after passing
 - Firestore rules restrict data access per-user and per-circle
 - Circle data auto-deletes after 90 minutes (TTL)
-
-## License
-
-MIT
