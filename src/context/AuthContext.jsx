@@ -18,27 +18,36 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        // Set user immediately and mark loading as false - DON'T WAIT FOR FIRESTORE
         setUser(firebaseUser);
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            setUserData(userDoc.data());
-          }
-        } catch (err) {
-          console.error('Error fetching user data:', err);
-          setError(err.message);
-        }
+        setLoading(false);
+        
+        // Fetch Firestore data in BACKGROUND without blocking UI
+        fetchUserDataAsync(firebaseUser.uid);
       } else {
         setUser(null);
         setUserData(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
   }, []);
+
+  // Async Firestore fetch that doesn't block the UI
+  const fetchUserDataAsync = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err);
+      setError(err.message);
+    }
+  };
 
   const signup = async (email, password, name) => {
     try {
@@ -47,7 +56,7 @@ export function AuthProvider({ children }) {
       await updateProfile(result.user, { displayName: name });
 
       // Create user document in Firestore
-      await setDoc(doc(db, 'users', result.user.uid), {
+      const userDocData = {
         uid: result.user.uid,
         name,
         email,
@@ -56,7 +65,14 @@ export function AuthProvider({ children }) {
         successful_trips: 0,
         created_at: serverTimestamp(),
         last_active: serverTimestamp(),
-      });
+      };
+      
+      await setDoc(doc(db, 'users', result.user.uid), userDocData);
+      
+      // Immediately set user and userData in state - don't wait for onAuthStateChanged
+      setUser(result.user);
+      setUserData(userDocData);
+      setLoading(false);
 
       return result.user;
     } catch (err) {
@@ -69,6 +85,7 @@ export function AuthProvider({ children }) {
     try {
       setError(null);
       const result = await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle setting user and loading state
       return result.user;
     } catch (err) {
       setError(err.message);

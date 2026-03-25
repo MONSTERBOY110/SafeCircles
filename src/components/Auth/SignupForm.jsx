@@ -24,8 +24,11 @@ export default function SignupForm() {
     setLoading(true);
     try {
       await signup(form.email, form.password, form.name);
-      toast.success('Account created! Please complete verification.');
-      navigate('/verify');
+      toast.success('Account created! Redirecting to dashboard...');
+      // Give auth state a moment to update with userData
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (err) {
       toast.error(err.message || 'Signup failed');
     } finally {
