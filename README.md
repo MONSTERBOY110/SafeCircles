@@ -48,19 +48,8 @@ cp .env.example .env.local
 ### Development
 
 ```bash
-# Start frontend dev server (http://localhost:3000)
 npm run dev
 
-# In another terminal — start Firebase emulators
-firebase emulators:start
-```
-
-### Deployment
-
-```bash
-npm run deploy          # Full deploy (frontend + functions)
-npm run deploy:hosting  # Frontend only
-npm run deploy:functions # Functions only
 ```
 
 ## Project Structure
