@@ -12,6 +12,7 @@ import CreateTripPage from './pages/CreateTripPage';
 import CirclePage from './pages/CirclePage';
 import ProfilePage from './pages/ProfilePage';
 import NotFound from './pages/NotFound';
+import VerificationFlow from './components/Verification/VerificationFlow';
 
 function App() {
   return (
@@ -39,6 +40,10 @@ function App() {
           <Route
             path="/profile"
             element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+          />
+          <Route
+            path="/verify"
+            element={<ProtectedRoute><VerificationFlow /></ProtectedRoute>}
           />
 
           {/* 404 */}
