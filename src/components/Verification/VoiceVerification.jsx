@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { VOICE_PROMPTS, VERIFICATION } from '../../utils/constants';
 import { detectPitch, detectVoiceActivity } from '../../utils/pitchDetection';
+import { performStrictVoiceVerification } from '../../utils/voiceVerification';
 
 // ── Random prompt ─────────────────────────────────────────────────────────
 function getRandomPrompt() {
@@ -314,13 +315,6 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       const buffer = await actx.decodeAudioData(ab);
       actx.close();
 
-      // 1. Duration check (2 - 8 seconds)
-      if (buffer.duration < 2 || buffer.duration > 8) {
-        setError(`Audio must be between 2 to 8 seconds. Yours was ${buffer.duration.toFixed(1)}s.`);
-        setStatus(S.FAIL);
-        return;
-      }
-
       // 2. Text Match Check (>= 80% similarity)
       // Skip if SpeechRecognition was unavailable (network error / cloud SR down)
       const srWorked = srAvailableRef.current && spokenTextRef.current.length > 0;
@@ -351,49 +345,43 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       // 3. Voice activity + Pitch + Energy + Speech Frame Check
       const { hasVoice, rms } = detectVoiceActivity(buffer);
       const { frequency }     = detectPitch(buffer);
-      
-      // Pitch Check — general human voice range (85–400 Hz)
-      // Wide range: female 165-255, male 85-180, both valid for liveness
-      const isHumanPitch = frequency >= 85 && frequency <= 400;
-      
-      // Energy Check (RMS > 0.02)
-      const isEnergyOk = rms > 0.02;
 
       // Speech Detection Check (At least 30% frames contain speech > 0.02)
       const activeFrames = audioTimelineRef.current.filter(val => val > 0.02).length;
       const speechRatio = audioTimelineRef.current.length ? activeFrames / audioTimelineRef.current.length : 0;
-      const isSpeechFramesOk = speechRatio >= 0.3;
 
       // 4. Lip Sync Check (> 0.6 correlation score proxy)
       const lipStdDev = lipTimelineRef.current.length >= 4 ? lipMovementStdDev(lipTimelineRef.current) : null;
-      // lipStdDev typically 0.003-0.020 for real speech, map to 0.0-2.0+ scale
       const lipSyncScore = lipStdDev !== null ? Math.min(2.0, lipStdDev * 100) : null;
-      // If camera didn't load in time (<4 frames), skip lip check; otherwise require > 0.6
-      const lipLivenessOk = lipSyncScore === null ? true : lipSyncScore > 0.6;
 
-      const passed = hasVoice && isHumanPitch && isEnergyOk && isSpeechFramesOk && lipLivenessOk && (similarity >= 0.8);
+      // ════════════════════════════════════════════════════════════════
+      // USE STRICT VERIFICATION FUNCTION
+      // ════════════════════════════════════════════════════════════════
+      const verificationResult = performStrictVoiceVerification({
+        frequency,
+        rms,
+        speechRatio,
+        lipSyncScore,
+        duration: buffer.duration,
+        similarity,
+        hasVoice,
+        textMatchRequired: srWorked,
+      });
 
-      const analysisResult = {
-        passed,
+      setResult({
+        passed: verificationResult.passed,
         durationSeconds: buffer.duration,
-        rms: +rms.toFixed(4),
-        frequency: +frequency.toFixed(1),
-        lipSyncScore: lipSyncScore !== null ? +lipSyncScore.toFixed(2) : null,
-        textSimilarity: srWorked ? +similarity.toFixed(2) : null,
-        textMatchSkipped: !srWorked,
-      };
+        ...verificationResult.details,
+      });
 
-      setResult(analysisResult);
-      setStatus(passed ? S.PASS : S.FAIL);
+      setStatus(verificationResult.passed ? S.PASS : S.FAIL);
 
-      if (passed) {
-        setTimeout(() => onVoiceVerificationComplete(true, analysisResult), 1200);
+      if (verificationResult.passed) {
+        setTimeout(() => onVoiceVerificationComplete(true, verificationResult), 1200);
       } else {
-        if (!isHumanPitch) setError(`Voice pitch out of expected range (detected ${frequency.toFixed(0)} Hz). Speak more naturally.`);
-        else if (!isEnergyOk) setError('Audio volume too low. Please speak louder.');
-        else if (!isSpeechFramesOk) setError('Not enough speech detected. Please speak continuously for 2–8 seconds.');
-        else if (!lipLivenessOk) setError('Lip movement too low. Please speak clearly facing the camera.');
-        else setError('Voice verification failed. Please try again and speak clearly.');
+        // Show specific failure reason
+        const mainReason = verificationResult.failureReasons[0] || 'Verification failed';
+        setError(mainReason);
       }
 
     } catch (err) {
