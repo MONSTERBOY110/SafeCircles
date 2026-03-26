@@ -79,57 +79,55 @@ export default function CreateTrip() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 py-12">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-3xl font-bold mb-1 text-gray-800">Create Your Trip</h2>
-          <p className="text-gray-500 mb-8">Find verified women to walk with safely</p>
+    <div className="w-full max-w-md mx-auto px-4 py-6">
+      <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2rem] shadow-2xl p-8">
+        <h2 className="text-3xl font-extrabold mb-2 text-[#eae0c8] tracking-tight">Create Your Trip</h2>
+        <p className="text-[#9CA3AF] mb-8 font-medium">Find verified women to walk with safely</p>
 
-          <form onSubmit={handleCreateTrip} className="space-y-6">
-            <div>
-              <label className="block font-semibold mb-2 text-gray-700">From (Starting Point)</label>
-              <select name="origin" value={tripData.origin} onChange={handleChange} className="input-field">
-                {LOCATIONS.map(l => <option key={l.label}>{l.label}</option>)}
-              </select>
-            </div>
+        <form onSubmit={handleCreateTrip} className="space-y-6">
+          <div>
+            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">From (Starting Point)</label>
+            <select name="origin" value={tripData.origin} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
+              {LOCATIONS.map(l => <option key={l.label} value={l.label} className="text-[#0B132B]">{l.label}</option>)}
+            </select>
+          </div>
 
-            <div>
-              <label className="block font-semibold mb-2 text-gray-700">To (Destination)</label>
-              <select name="destination" value={tripData.destination} onChange={handleChange} className="input-field">
-                {LOCATIONS.map(l => <option key={l.label}>{l.label}</option>)}
-              </select>
-            </div>
+          <div>
+            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">To (Destination)</label>
+            <select name="destination" value={tripData.destination} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
+              {LOCATIONS.map(l => <option key={l.label} value={l.label} className="text-[#0B132B]">{l.label}</option>)}
+            </select>
+          </div>
 
-            <div>
-              <label className="block font-semibold mb-2 text-gray-700">Departure Time</label>
-              <input
-                type="time"
-                name="departureTime"
-                value={tripData.departureTime}
-                onChange={handleChange}
-                className="input-field"
-                required
-              />
-              <p className="text-gray-400 text-xs mt-1">±15 minutes flexibility for matching</p>
-            </div>
+          <div>
+            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">Departure Time</label>
+            <input
+              type="time"
+              name="departureTime"
+              value={tripData.departureTime}
+              onChange={handleChange}
+              className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner [color-scheme:dark]"
+              required
+            />
+            <p className="text-[#9CA3AF] text-xs mt-2 font-medium">±15 minutes flexibility for matching</p>
+          </div>
 
-            <div>
-              <label className="block font-semibold mb-2 text-gray-700">Circle Preference</label>
-              <select name="circlePreference" value={tripData.circlePreference} onChange={handleChange} className="input-field">
-                <option value="women_only">Women Only</option>
-                <option value="mixed">Women + Verified Allies</option>
-              </select>
-            </div>
+          <div>
+            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">Circle Preference</label>
+            <select name="circlePreference" value={tripData.circlePreference} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
+              <option value="women_only" className="text-[#0B132B]">Women Only</option>
+              <option value="mixed" className="text-[#0B132B]">Women + Verified Allies</option>
+            </select>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Creating trip...' : '🔍 Find My Circle'}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600/90 text-white font-bold text-lg py-4 rounded-[1.5rem] hover:bg-blue-500 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none mt-4"
+          >
+            {loading ? 'Creating trip...' : '🔍 Find My Circle'}
+          </button>
+        </form>
       </div>
     </div>
   );
