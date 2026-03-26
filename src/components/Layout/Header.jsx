@@ -7,7 +7,7 @@ export default function Header() {
       <div className="container-max flex items-center justify-center">
         <Link to="/dashboard" className="flex items-center gap-2 transition-transform hover:scale-105">
           <span className="text-3xl font-extrabold tracking-widest text-[#eae0c8] uppercase drop-shadow-xl">
-            SafeCircles
+
           </span>
         </Link>
       </div>

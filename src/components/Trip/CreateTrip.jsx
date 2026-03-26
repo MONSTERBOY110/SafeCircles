@@ -1,133 +1,115 @@
-import React, { useState } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../services/firebase';
-import { useNavigate } from 'react-router-dom';
-import { geohashEncode } from '../../utils/geohash';
-import toast from 'react-hot-toast';
-
-// Default locations for MVP -- Jadavpur area
-const LOCATIONS = [
-  { label: 'Jadavpur Metro Station', lat: 22.5561, lng: 88.3629 },
-  { label: 'Girls Hostel, Rajendra Nagar', lat: 22.5450, lng: 88.3700 },
-  { label: 'Jadavpur University Gate 1', lat: 22.4978, lng: 88.3714 },
-  { label: 'Park Street', lat: 22.5538, lng: 88.3516 },
-  { label: 'Gariahat Market', lat: 22.5133, lng: 88.3638 },
-  { label: 'Salt Lake Sector V', lat: 22.5828, lng: 88.4312 },
-];
 
 export default function CreateTrip() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [tripData, setTripData] = useState({
-    origin: 'Jadavpur Metro Station',
-    destination: 'Girls Hostel, Rajendra Nagar',
-    departureTime: '20:00',
-    circlePreference: 'women_only',
-  });
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('active');
 
-  const handleChange = (e) => {
-    setTripData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const resolveCoords = (landmark) => {
-    const found = LOCATIONS.find(l => l.label === landmark);
-    if (found) return { lat: found.lat, lng: found.lng };
-    // Default fallback
-    return { lat: 22.5561, lng: 88.3629 };
-  };
-
-  const handleCreateTrip = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // Fetch all trips for user history (preserves Firebase frontend logic patterns)
+  useEffect(() => {
     const user = auth.currentUser;
-    if (!user) { toast.error('Not logged in'); return; }
-
-    try {
-      const [hours, minutes] = tripData.departureTime.split(':');
-      const departure = new Date();
-      departure.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      const arrival = new Date(departure.getTime() + 15 * 60000);
-
-      const originCoords = resolveCoords(tripData.origin);
-      const destCoords = resolveCoords(tripData.destination);
-
-      const tripRef = await addDoc(collection(db, 'trips'), {
-        user_id: user.uid,
-        user_name: user.displayName || 'User',
-        origin_landmark: tripData.origin,
-        destination_landmark: tripData.destination,
-        origin_coords: originCoords,
-        dest_coords: destCoords,
-        origin_geohash: geohashEncode(originCoords.lat, originCoords.lng, 7),
-        dest_geohash: geohashEncode(destCoords.lat, destCoords.lng, 7),
-        departure_window: { start: departure, end: arrival },
-        circle_type: tripData.circlePreference,
-        status: 'pending',
-        circle_id: null,
-        created_at: serverTimestamp(),
-        expires_at: new Date(Date.now() + 90 * 60 * 1000),
-      });
-
-      toast.success('Trip created! Searching for a circle...');
-      navigate(`/trip/${tripRef.id}`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to create trip. Please try again.');
-    } finally {
+    if (!user) {
       setLoading(false);
+      return;
     }
-  };
+
+    const q = query(
+      collection(db, 'trips'),
+      where('user_id', '==', user.uid)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const fetchedTrips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Sort newest first safely
+      fetchedTrips.sort((a, b) => {
+        const timeA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+        const timeB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+        return timeB - timeA;
+      });
+      setTrips(fetchedTrips);
+      setLoading(false);
+    });
+
+    return unsub;
+  }, []);
+
+  const activeTrips = trips.filter(t => t.status === 'pending' || t.status === 'active');
+  const pastTrips = trips.filter(t => t.status === 'completed' || t.status === 'cancelled');
+  const displayedTrips = activeTab === 'active' ? activeTrips : pastTrips;
 
   return (
     <div className="w-full max-w-md mx-auto px-4 py-6">
-      <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2rem] shadow-2xl p-8">
-        <h2 className="text-3xl font-extrabold mb-2 text-[#eae0c8] tracking-tight">Create Your Trip</h2>
-        <p className="text-[#9CA3AF] mb-8 font-medium">Find verified women to walk with safely</p>
+      <h2 className="text-3xl font-extrabold mb-6 text-[#eae0c8] tracking-tight">Your Trips</h2>
 
-        <form onSubmit={handleCreateTrip} className="space-y-6">
-          <div>
-            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">From (Starting Point)</label>
-            <select name="origin" value={tripData.origin} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
-              {LOCATIONS.map(l => <option key={l.label} value={l.label} className="text-[#0B132B]">{l.label}</option>)}
-            </select>
+      {/* Tabs */}
+      <div className="flex bg-[#111A3A]/80 backdrop-blur-md rounded-2xl p-1 mb-6 border border-white/10 shadow-lg">
+        <button 
+          onClick={() => setActiveTab('active')}
+          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'active' ? 'bg-blue-600/90 text-white shadow-md' : 'text-[#9CA3AF] hover:text-[#eae0c8]'}`}
+        >
+          Active Trips
+        </button>
+        <button 
+          onClick={() => setActiveTab('past')}
+          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'past' ? 'bg-blue-600/90 text-white shadow-md' : 'text-[#9CA3AF] hover:text-[#eae0c8]'}`}
+        >
+          Past Trips
+        </button>
+      </div>
+
+      {/* Trips List */}
+      <div className="space-y-4">
+        {loading ? (
+          <div className="text-center py-10 opacity-50">
+             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+             <p className="text-[#eae0c8] font-medium tracking-wide">Loading trips...</p>
           </div>
-
-          <div>
-            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">To (Destination)</label>
-            <select name="destination" value={tripData.destination} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
-              {LOCATIONS.map(l => <option key={l.label} value={l.label} className="text-[#0B132B]">{l.label}</option>)}
-            </select>
+        ) : displayedTrips.length === 0 ? (
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2rem] shadow-xl p-10 text-center flex flex-col items-center justify-center mt-8">
+            <div className="text-5xl mb-4 opacity-50 drop-shadow-md">🚙</div>
+            <p className="text-[#9CA3AF] font-medium leading-relaxed text-lg">No {activeTab} trips yet.</p>
           </div>
-
-          <div>
-            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">Departure Time</label>
-            <input
-              type="time"
-              name="departureTime"
-              value={tripData.departureTime}
-              onChange={handleChange}
-              className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner [color-scheme:dark]"
-              required
-            />
-            <p className="text-[#9CA3AF] text-xs mt-2 font-medium">±15 minutes flexibility for matching</p>
-          </div>
-
-          <div>
-            <label className="block font-bold mb-2 text-[#eae0c8] tracking-wide text-sm">Circle Preference</label>
-            <select name="circlePreference" value={tripData.circlePreference} onChange={handleChange} className="w-full bg-[#111A3A]/80 border border-white/10 text-[#eae0c8] rounded-[1rem] p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner">
-              <option value="women_only" className="text-[#0B132B]">Women Only</option>
-              <option value="mixed" className="text-[#0B132B]">Women + Verified Allies</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600/90 text-white font-bold text-lg py-4 rounded-[1.5rem] hover:bg-blue-500 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none mt-4"
-          >
-            {loading ? 'Creating trip...' : '🔍 Find My Circle'}
-          </button>
-        </form>
+        ) : (
+          displayedTrips.map(trip => (
+            <div key={trip.id} className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[1.5rem] shadow-xl p-5 flex flex-col gap-3 hover:bg-white/10 transition-colors">
+              <div className="flex justify-between items-start">
+                <div className="flex-1 pr-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>
+                    <h3 className="text-[#eae0c8] font-bold text-base leading-tight truncate">{trip.origin_landmark || 'Unknown Origin'}</h3>
+                  </div>
+                  <div className="w-[2px] h-3 bg-white/10 ml-[4px] my-1 rounded-full"></div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-2.5 h-2.5 bg-red-400 shrink-0 shadow-[0_0_8px_rgba(248,113,113,0.8)] transform rotate-45"></span>
+                    <h3 className="text-[#eae0c8] font-bold text-base leading-tight truncate">{trip.destination_landmark || 'Unknown Destination'}</h3>
+                  </div>
+                </div>
+                <span className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest shrink-0 ${
+                  trip.status === 'pending' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                  trip.status === 'active' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                  trip.status === 'completed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                  'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                }`}>
+                  {trip.status}
+                </span>
+              </div>
+              
+              <div className="mt-2 pt-3 border-t border-white/5 flex justify-between items-center text-sm">
+                <span className="text-[#9CA3AF] font-medium text-xs flex items-center gap-1.5">
+                  <span className="opacity-70">🕒</span>
+                  {trip.created_at?.toDate ? trip.created_at.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                </span>
+                {trip.circle_type && (
+                  <span className="text-blue-300/80 text-xs font-semibold tracking-wide bg-blue-900/40 px-2 py-1 rounded-md">
+                    {trip.circle_type.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
