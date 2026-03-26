@@ -23,12 +23,13 @@ function lipMovementStdDev(lipTimeline) {
 const S = { IDLE: 'idle', RECORDING: 'recording', ANALYZING: 'analyzing', PASS: 'pass', FAIL: 'fail' };
 
 export default function VoiceVerification({ onVoiceVerificationComplete, isLoading }) {
-  const [prompt]      = useState(getRandomPrompt);
+  const [prompt, setPrompt] = useState(getRandomPrompt);
   const [status,      setStatus]      = useState(S.IDLE);
   const [timeLeft,    setTimeLeft]    = useState(VERIFICATION.MAX_RECORDING_SECONDS);
   const [audioLevel,  setAudioLevel]  = useState(0);   // 0-100 live mic level
   const [result,      setResult]      = useState(null); // analysis result object
   const [error,       setError]       = useState('');
+  const [spokenText,  setSpokenText]  = useState('');
 
   // Refs — camera + MediaPipe for lip tracking
   const videoRef        = useRef(null);
@@ -47,6 +48,11 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
   const analyserRef     = useRef(null);
   const levelRafRef     = useRef(null);
   const audioTimelineRef= useRef([]);   // rms sampled ~30fps while recording
+
+  // Refs - speech matching
+  const recognitionRef  = useRef(null);
+  const spokenTextRef   = useRef('');
+  const srAvailableRef  = useRef(true);  // flips false on network/unavailable error
 
   // ── Camera + MediaPipe setup (runs once on mount) ─────────────────────
   useEffect(() => {
@@ -199,12 +205,44 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
     chunksRef.current = [];
     lipTimelineRef.current = [];
     audioTimelineRef.current = [];
+    spokenTextRef.current = '';
+    setSpokenText('');
     recordingRef.current = true;
     setAudioLevel(0);
 
     try {
+      // Get mic FIRST — SpeechRecognition must share the same mic permission
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       micStreamRef.current = micStream;
+
+      // Start SpeechRecognition AFTER mic is open (avoids Chrome mic-conflict)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      srAvailableRef.current = !!SpeechRecognition; // reset on each recording attempt
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        recognition.onresult = (event) => {
+          let accumulated = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            accumulated += event.results[i][0].transcript + ' ';
+          }
+          spokenTextRef.current = accumulated.trim();
+          setSpokenText(accumulated.trim());
+        };
+        recognition.onerror = (e) => {
+          console.warn('SpeechRecognition error:', e.error);
+          // 'network' and 'service-not-allowed' mean the cloud SR is unavailable
+          // Fall back gracefully — only audio checks will be used
+          if (e.error === 'network' || e.error === 'service-not-allowed' || e.error === 'not-allowed') {
+            srAvailableRef.current = false;
+            setSpokenText('(voice recognition unavailable — audio checks only)');
+          }
+        };
+        try { recognition.start(); } catch(e){ console.warn('SR start failed', e); srAvailableRef.current = false; }
+        recognitionRef.current = recognition;
+      }
 
       // Web Audio for live level + timeline
       const ctx       = new AudioContext();
@@ -235,6 +273,8 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       }, 1000);
 
     } catch {
+      // Stop recognition if mic fails
+      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
       setError('Microphone access denied. Please allow microphone access and try again.');
       recordingRef.current = false;
     }
@@ -246,6 +286,10 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
     cancelAnimationFrame(levelRafRef.current);
     recordingRef.current = false;
     setAudioLevel(0);
+
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch(e){}
+    }
 
     if (recorderRef.current?.state === 'recording') {
       recorderRef.current.stop();
@@ -259,7 +303,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
   const analyzeRecording = useCallback(async () => {
     if (!chunksRef.current.length) {
       setError('No audio recorded. Please try again.');
-      setStatus(S.IDLE);
+      setStatus(S.FAIL);
       return;
     }
 
@@ -270,44 +314,73 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       const buffer = await actx.decodeAudioData(ab);
       actx.close();
 
-      // Duration check
-      if (buffer.duration < VERIFICATION.MIN_RECORDING_SECONDS) {
-        setError(`Recording too short (${buffer.duration.toFixed(1)}s). Please speak for at least ${VERIFICATION.MIN_RECORDING_SECONDS} seconds.`);
-        setStatus(S.IDLE);
+      // 1. Duration check (2 - 8 seconds)
+      if (buffer.duration < 2 || buffer.duration > 8) {
+        setError(`Audio must be between 2 to 8 seconds. Yours was ${buffer.duration.toFixed(1)}s.`);
+        setStatus(S.FAIL);
         return;
       }
 
-      // Voice activity + pitch
+      // 2. Text Match Check (>= 80% similarity)
+      // Skip if SpeechRecognition was unavailable (network error / cloud SR down)
+      const srWorked = srAvailableRef.current && spokenTextRef.current.length > 0;
+      let similarity = 1.0; // default: skip check
+      
+      if (srWorked) {
+        const userSpoken = spokenTextRef.current;
+        // Normalize: lowercase, remove punctuation, expand known compound brand names
+        // e.g. "SafeCircles" → "safe circles" to match how SR transcribes speech
+        const normalize = (t) => (t || '')
+          .toLowerCase()
+          .replace(/safecircles/g, 'safe circles') // brand name expansion
+          .replace(/[^\w\s]|_/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const wordsRequired = normalize(prompt).split(' ').filter(Boolean);
+        const wordsSpoken = normalize(userSpoken).split(' ').filter(Boolean);
+        const matchCount = wordsRequired.filter(w => wordsSpoken.includes(w)).length;
+        similarity = wordsRequired.length === 0 ? 0 : matchCount / Math.max(wordsRequired.length, wordsSpoken.length);
+        
+        if (similarity < 0.8) {
+          setError(`Please read the exact sentence shown. Heard: "${userSpoken || '[Nothing distinct]'}"`);
+          setStatus(S.FAIL);
+          return;
+        }
+      }
+
+      // 3. Voice activity + Pitch + Energy + Speech Frame Check
       const { hasVoice, rms } = detectVoiceActivity(buffer);
       const { frequency }     = detectPitch(buffer);
-      const inHumanRange      = frequency > 60 && frequency < 500;
+      
+      // Pitch Check — general human voice range (85–400 Hz)
+      // Wide range: female 165-255, male 85-180, both valid for liveness
+      const isHumanPitch = frequency >= 85 && frequency <= 400;
+      
+      // Energy Check (RMS > 0.02)
+      const isEnergyOk = rms > 0.02;
 
-      // Lip liveness: std deviation of lip gap during recording
-      // Real speech → lips move a lot → high stdDev
-      // Static face (photo/deepfake) → near-zero stdDev
-      const LIP_STDDEV_THRESHOLD = 0.003; // easily hit when speaking
-      const lipStdDev = lipTimelineRef.current.length >= 4
-        ? lipMovementStdDev(lipTimelineRef.current)
-        : null;
-      const lipLivenessOk = lipStdDev === null
-        ? true  // camera not available — skip check
-        : lipStdDev > LIP_STDDEV_THRESHOLD;
+      // Speech Detection Check (At least 30% frames contain speech > 0.02)
+      const activeFrames = audioTimelineRef.current.filter(val => val > 0.02).length;
+      const speechRatio = audioTimelineRef.current.length ? activeFrames / audioTimelineRef.current.length : 0;
+      const isSpeechFramesOk = speechRatio >= 0.3;
 
-      const passed = hasVoice
-        && rms > VERIFICATION.MIN_VOICE_RMS
-        && inHumanRange
-        && lipLivenessOk;
+      // 4. Lip Sync Check (> 0.6 correlation score proxy)
+      const lipStdDev = lipTimelineRef.current.length >= 4 ? lipMovementStdDev(lipTimelineRef.current) : null;
+      // lipStdDev typically 0.003-0.020 for real speech, map to 0.0-2.0+ scale
+      const lipSyncScore = lipStdDev !== null ? Math.min(2.0, lipStdDev * 100) : null;
+      // If camera didn't load in time (<4 frames), skip lip check; otherwise require > 0.6
+      const lipLivenessOk = lipSyncScore === null ? true : lipSyncScore > 0.6;
+
+      const passed = hasVoice && isHumanPitch && isEnergyOk && isSpeechFramesOk && lipLivenessOk && (similarity >= 0.8);
 
       const analysisResult = {
         passed,
         durationSeconds: buffer.duration,
         rms: +rms.toFixed(4),
         frequency: +frequency.toFixed(1),
-        inHumanRange,
-        hasVoice,
-        lipStdDev: lipStdDev !== null ? +lipStdDev.toFixed(4) : null,
-        lipLivenessOk,
-        lipMovementPct: lipStdDev !== null ? Math.round((lipStdDev / 0.02) * 100) : null,
+        lipSyncScore: lipSyncScore !== null ? +lipSyncScore.toFixed(2) : null,
+        textSimilarity: srWorked ? +similarity.toFixed(2) : null,
+        textMatchSkipped: !srWorked,
       };
 
       setResult(analysisResult);
@@ -315,20 +388,36 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 
       if (passed) {
         setTimeout(() => onVoiceVerificationComplete(true, analysisResult), 1200);
+      } else {
+        if (!isHumanPitch) setError(`Voice pitch out of expected range (detected ${frequency.toFixed(0)} Hz). Speak more naturally.`);
+        else if (!isEnergyOk) setError('Audio volume too low. Please speak louder.');
+        else if (!isSpeechFramesOk) setError('Not enough speech detected. Please speak continuously for 2–8 seconds.');
+        else if (!lipLivenessOk) setError('Lip movement too low. Please speak clearly facing the camera.');
+        else setError('Voice verification failed. Please try again and speak clearly.');
       }
 
     } catch (err) {
       console.error('Audio analysis error:', err);
       setError('Audio analysis failed. Please try again.');
-      setStatus(S.IDLE);
+      setStatus(S.FAIL);
     }
-  }, [onVoiceVerificationComplete]);
+  }, [prompt, onVoiceVerificationComplete]);
+
+  // ── Reset on Failure ──────────────────────────────────────────────────
+  const handleTryAgain = () => {
+    setStatus(S.IDLE);
+    setResult(null);
+    setError('');
+    setPrompt(getRandomPrompt()); // Generate NEW random sentence
+    setSpokenText('');
+  };
 
   // ── Cleanup on unmount ────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       clearInterval(timerRef.current);
       cancelAnimationFrame(levelRafRef.current);
+      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
       micStreamRef.current?.getTracks().forEach(t => t.stop());
       audioCtxRef.current?.close();
     };
@@ -346,10 +435,24 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       </p>
 
       {/* Prompt card */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-5 shadow-sm">
-        <p className="text-xs text-blue-400 font-semibold uppercase tracking-widest mb-2">🎤 Say This</p>
-        <p className="text-blue-900 font-bold text-xl leading-snug">{prompt}</p>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-3 shadow-sm">
+        <p className="text-xs text-blue-400 font-semibold uppercase tracking-widest mb-2">🎤 Say This Exact Sentence</p>
+        <p className="text-blue-900 font-bold text-xl leading-snug">"{prompt}"</p>
       </div>
+
+      {/* SR fallback notice */}
+      {spokenText.includes('unavailable') && (
+        <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-700 text-xs font-medium">
+          ⚠️ Speech-to-text unavailable in this environment — verifying by voice audio &amp; lip movement only.
+        </div>
+      )}
+
+      {/* Live transcript display during recording */}
+      {status === S.RECORDING && spokenText && !spokenText.includes('unavailable') && (
+        <div className="mb-3 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium">
+          🗣 Heard: "{spokenText}"
+        </div>
+      )}
 
         {/* Camera feed — full size like FaceDetection */}
         <div className="relative inline-block mb-4">
@@ -412,7 +515,8 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       {status === S.IDLE && (
         <button
           onClick={startRecording}
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg transition"
+          disabled={isLoading}
+          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg transition disabled:opacity-50"
         >
           🎤 Start Recording
         </button>
@@ -421,20 +525,18 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       {status === S.RECORDING && (
         <button
           onClick={stopRecording}
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-lg shadow-lg transition animate-pulse"
+          disabled={isLoading}
+          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-lg shadow-lg transition animate-pulse disabled:opacity-50"
         >
           ⏹ Done Speaking
         </button>
       )}
 
       {status === S.ANALYZING && (
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl bg-blue-50 text-blue-700 font-semibold text-lg">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-blue-700" />
-            Analyzing your voice...
-          </div>
-          <p className="text-xs text-gray-400">Checking pitch, speech presence & lip sync</p>
-        </div>
+        <button disabled className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-50 text-blue-700 font-bold text-lg border border-blue-200">
+          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-blue-700" />
+          Verifying... Please wait
+        </button>
       )}
 
       {/* Results panel */}

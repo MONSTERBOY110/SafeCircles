@@ -50,18 +50,18 @@ export const EMERGENCY_CONTACTS = {
   FIRE: '101',
 };
 
-// Verification prompts for voice step
+// Verification prompts for voice step — plain sentences the user speaks aloud
 export const VOICE_PROMPTS = [
-  'Say: "I am walking safely with SafeCircles"',
-  'Say: "My name is _____ and I am a real person"',
-  'Count slowly from one to five',
-  'Say: "SafeCircles keeps me safe"',
-  'Describe what you see around you right now',
-  'Say your favorite color and why you like it',
-  'Say: "I am not using a pre-recorded video"',
-  'Tell me what day of the week it is today',
-  'Say: "Safety first, always"',
-  'Describe the weather where you are right now',
+  'I am walking safely with SafeCircles',
+  'SafeCircles keeps me safe on every walk',
+  'I am a real person using SafeCircles',
+  'Safety first always and everywhere',
+  'I am not using a pre recorded video',
+  'My location is secure and I am safe',
+  'SafeCircles is my trusted safety companion',
+  'I verify that I am a live person today',
+  'Walking with SafeCircles makes me feel safe',
+  'I am speaking clearly to verify my identity',
 ];
 
 // Reputation score thresholds

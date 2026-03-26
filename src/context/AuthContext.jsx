@@ -44,8 +44,9 @@ export function AuthProvider({ children }) {
         setUserData(userDoc.data());
       }
     } catch (err) {
-      console.error('Error fetching user data:', err);
-      setError(err.message);
+      // Silently warn — common in dev when ad blocker blocks firestore.googleapis.com
+      console.warn('Could not fetch user data (Firestore may be offline):', err.code || err.message);
+      // Do NOT set error state — this is non-critical background fetch
     }
   };
 

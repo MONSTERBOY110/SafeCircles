@@ -4,13 +4,14 @@
   "description": "Real-time safety companion for verified women walking together",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3498DB",
+  "background_color": "#0B132B",
+  "theme_color": "#1C2951",
   "icons": [
     {
-      "src": "/images/logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/hero-bg.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
