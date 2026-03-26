@@ -1,19 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { signup, user } = useAuth();
-  
-  // Reactively navigate to dashboard the millisecond the user authenticates
-  useEffect(() => {
-    if (user) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, navigate]);
-  
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,19 +27,58 @@ export default function Signup() {
       return;
     }
     
-    setLoading(true);
-
     try {
-      // WAIT for signup to complete (auth + firestore write)
-      await signup(email, password, name);
+      setLoading(true);
+
+      console.log('Step 1: Starting authentication...');
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      console.log('✅ Auth success:', user.uid);
+      console.log('Step 2: Saving to Firestore...');
+
+      const userDocRef = doc(db, 'users', user.uid);
+      console.log('Doc reference created:', userDocRef.path);
+
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        name: name,
+        isVerified: false,
+        reputation: 0,
+        createdAt: serverTimestamp()
+      };
+
+      console.log('Attempting setDoc with data:', userData);
+      
+      try {
+        console.log('📡 Testing Firestore connection...');
+        
+        // Try a simple write first
+        await setDoc(userDocRef, userData);
+        console.log('✅ Firestore write success');
+        
+      } catch (firestoreError) {
+        console.error('Firestore error details:', {
+          code: firestoreError.code,
+          message: firestoreError.message,
+          name: firestoreError.name
+        });
+        throw firestoreError;
+      }
+      console.log('🎉 All steps complete, navigating to dashboard...');
       toast.success('Account created!');
-      
-      // User data is already loaded in context, redirect immediately
       navigate('/dashboard');
+      console.log('📍 Navigate called - should go to /dashboard now');
+
+    } catch (error) {
+      console.error('❌ Signup error:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
       
-    } catch (err) {
-      setError(err.message || 'Signup failed. Please try again.');
-      toast.error(err.message || 'Signup failed');
+      setError(error.message || 'Signup failed. Please try again.');
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }

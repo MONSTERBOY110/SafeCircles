@@ -15,8 +15,9 @@ const firebaseConfig = {
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Export Firebase Authentication & Firestore Database
-export const auth = getAuth(app);
+// Use standard getFirestore instead of experimental settings
 export const db = getFirestore(app);
+
+export const auth = getAuth(app);
 
 export default app;
