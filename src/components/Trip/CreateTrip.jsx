@@ -45,13 +45,13 @@ export default function CreateTrip() {
 
       {/* Tabs */}
       <div className="flex bg-[#111A3A]/80 backdrop-blur-md rounded-2xl p-1 mb-6 border border-white/10 shadow-lg">
-        <button 
+        <button
           onClick={() => setActiveTab('active')}
           className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'active' ? 'bg-blue-600/90 text-white shadow-md' : 'text-[#9CA3AF] hover:text-[#eae0c8]'}`}
         >
           Active Trips
         </button>
-        <button 
+        <button
           onClick={() => setActiveTab('past')}
           className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'past' ? 'bg-blue-600/90 text-white shadow-md' : 'text-[#9CA3AF] hover:text-[#eae0c8]'}`}
         >
@@ -63,8 +63,8 @@ export default function CreateTrip() {
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-10 opacity-50">
-             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-             <p className="text-[#eae0c8] font-medium tracking-wide">Loading trips...</p>
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-[#eae0c8] font-medium tracking-wide">Loading trips...</p>
           </div>
         ) : displayedTrips.length === 0 ? (
           <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2rem] shadow-xl p-10 text-center flex flex-col items-center justify-center mt-8">
@@ -86,16 +86,15 @@ export default function CreateTrip() {
                     <h3 className="text-[#eae0c8] font-bold text-base leading-tight truncate">{trip.destination_landmark || 'Unknown Destination'}</h3>
                   </div>
                 </div>
-                <span className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest shrink-0 ${
-                  trip.status === 'pending' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
-                  trip.status === 'active' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                  trip.status === 'completed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
-                  'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                }`}>
+                <span className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold uppercase tracking-widest shrink-0 ${trip.status === 'pending' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                    trip.status === 'active' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                      trip.status === 'completed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                        'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                  }`}>
                   {trip.status}
                 </span>
               </div>
-              
+
               <div className="mt-2 pt-3 border-t border-white/5 flex justify-between items-center text-sm">
                 <span className="text-[#9CA3AF] font-medium text-xs flex items-center gap-1.5">
                   <span className="opacity-70">🕒</span>

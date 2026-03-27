@@ -1,11 +1,12 @@
 import React from 'react';
 import { REPUTATION } from '../../utils/constants';
+import { Trophy } from 'lucide-react';
 
 export default function ReputationScore({ score, trips }) {
   const getTier = (s) => {
-    if (s >= REPUTATION.TRUSTED) return { label: 'Trusted', color: 'text-blue-600', bg: 'bg-blue-50' };
-    if (s >= REPUTATION.EXPERIENCED) return { label: 'Experienced', color: 'text-purple-600', bg: 'bg-purple-50' };
-    return { label: 'New Member', color: 'text-gray-600', bg: 'bg-gray-50' };
+    if (s >= REPUTATION.TRUSTED) return { label: 'Trusted', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', bar: 'bg-blue-500' };
+    if (s >= REPUTATION.EXPERIENCED) return { label: 'Experienced', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', bar: 'bg-purple-500' };
+    return { label: 'New Member', color: 'text-[#eae0c8]/60', bg: 'bg-white/5', border: 'border-white/10', bar: 'bg-blue-500' };
   };
 
   const tier = getTier(score);
@@ -13,21 +14,25 @@ export default function ReputationScore({ score, trips }) {
   const progress = nextMilestone ? Math.min((score / nextMilestone) * 100, 100) : 100;
 
   return (
-    <div className={`${tier.bg} rounded-xl p-4`}>
+    <div className={`${tier.bg} border ${tier.border} rounded-xl p-4`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`font-bold ${tier.color}`}>{tier.label}</span>
-        <span className="text-gray-500 text-sm">{score} pts</span>
+        <span className={`font-bold flex items-center gap-1.5 ${tier.color}`}>
+          {!nextMilestone && <Trophy className="w-4 h-4" />} {tier.label}
+        </span>
+        <span className="text-[#eae0c8]/50 text-sm font-semibold">{score} pts</span>
       </div>
       {nextMilestone && (
         <>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-            <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
+            <div className={`${tier.bar} h-1.5 rounded-full transition-all`} style={{ width: `${progress}%` }} />
           </div>
-          <p className="text-xs text-gray-400">{nextMilestone - score} more trips to reach next tier</p>
+          <p className="text-xs text-[#eae0c8]/40 font-medium">{nextMilestone - score} more trips to reach next tier</p>
         </>
       )}
       {!nextMilestone && (
-        <p className="text-xs text-blue-500 font-semibold">🏆 Maximum trust level reached!</p>
+        <p className={`text-xs font-semibold flex items-center gap-1.5 ${tier.color}`}>
+          Maximum trust level reached
+        </p>
       )}
     </div>
   );

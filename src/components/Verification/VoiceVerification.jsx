@@ -25,35 +25,35 @@ const S = { IDLE: 'idle', RECORDING: 'recording', ANALYZING: 'analyzing', PASS: 
 
 export default function VoiceVerification({ onVoiceVerificationComplete, isLoading }) {
   const [prompt, setPrompt] = useState(getRandomPrompt);
-  const [status,      setStatus]      = useState(S.IDLE);
-  const [timeLeft,    setTimeLeft]    = useState(VERIFICATION.MAX_RECORDING_SECONDS);
-  const [audioLevel,  setAudioLevel]  = useState(0);   // 0-100 live mic level
-  const [result,      setResult]      = useState(null); // analysis result object
-  const [error,       setError]       = useState('');
-  const [spokenText,  setSpokenText]  = useState('');
+  const [status, setStatus] = useState(S.IDLE);
+  const [timeLeft, setTimeLeft] = useState(VERIFICATION.MAX_RECORDING_SECONDS);
+  const [audioLevel, setAudioLevel] = useState(0);   // 0-100 live mic level
+  const [result, setResult] = useState(null); // analysis result object
+  const [error, setError] = useState('');
+  const [spokenText, setSpokenText] = useState('');
 
   // Refs — camera + MediaPipe for lip tracking
-  const videoRef        = useRef(null);
-  const canvasRef       = useRef(null);
-  const faceMeshRef     = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const faceMeshRef = useRef(null);
   const cameraStreamRef = useRef(null);
-  const lipTimelineRef  = useRef([]);   // {t, gap}[] sampled per frame while recording
-  const recordingRef    = useRef(false); // flag so onResults knows if we're recording
+  const lipTimelineRef = useRef([]);   // {t, gap}[] sampled per frame while recording
+  const recordingRef = useRef(false); // flag so onResults knows if we're recording
 
   // Refs — audio
-  const micStreamRef    = useRef(null);
-  const recorderRef     = useRef(null);
-  const chunksRef       = useRef([]);
-  const timerRef        = useRef(null);
-  const audioCtxRef     = useRef(null);
-  const analyserRef     = useRef(null);
-  const levelRafRef     = useRef(null);
-  const audioTimelineRef= useRef([]);   // rms sampled ~30fps while recording
+  const micStreamRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const timerRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const levelRafRef = useRef(null);
+  const audioTimelineRef = useRef([]);   // rms sampled ~30fps while recording
 
   // Refs - speech matching
-  const recognitionRef  = useRef(null);
-  const spokenTextRef   = useRef('');
-  const srAvailableRef  = useRef(true);  // flips false on network/unavailable error
+  const recognitionRef = useRef(null);
+  const spokenTextRef = useRef('');
+  const srAvailableRef = useRef(true);  // flips false on network/unavailable error
 
   // ── Camera + MediaPipe setup (runs once on mount) ─────────────────────
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
         mesh.onResults(results => {
           if (!mounted || !canvasRef.current || !videoRef.current) return;
           const canvas = canvasRef.current;
-          const ctx    = canvas.getContext('2d');
+          const ctx = canvas.getContext('2d');
 
           // Mirror draw
           ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -100,11 +100,11 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
           // Upper lip (inner): 78, 82, 13, 312, 308 | Lower lip (inner): 78, 87, 14, 317, 308
           // Center pair + quarter-pairs + outer pair
           const LIP_PAIRS = [
-            [13,  14],   // center inner
-            [82,  87],   // left-quarter inner
+            [13, 14],   // center inner
+            [82, 87],   // left-quarter inner
             [312, 317],  // right-quarter inner
-            [0,   17],   // center outer (wide open)
-            [37,  84],   // left outer
+            [0, 17],   // center outer (wide open)
+            [37, 84],   // left outer
             [267, 314],  // right outer
           ];
           const gap = LIP_PAIRS.reduce((sum, [u, l]) => {
@@ -113,9 +113,9 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
           }, 0) / LIP_PAIRS.length;
 
           // Draw all lip outline dots (mirrored)
-          const ALL_LIP = [61,185,40,39,37,0,267,269,270,409,291,
-                           308,415,310,311,312,13,82,81,80,78,
-                           95,88,178,87,14,317,402,318,324,308];
+          const ALL_LIP = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291,
+            308, 415, 310, 311, 312, 13, 82, 81, 80, 78,
+            95, 88, 178, 87, 14, 317, 402, 318, 324, 308];
           ALL_LIP.forEach(i => {
             const p = lm[i]; if (!p) return;
             ctx.beginPath();
@@ -241,15 +241,15 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
             setSpokenText('(voice recognition unavailable — audio checks only)');
           }
         };
-        try { recognition.start(); } catch(e){ console.warn('SR start failed', e); srAvailableRef.current = false; }
+        try { recognition.start(); } catch (e) { console.warn('SR start failed', e); srAvailableRef.current = false; }
         recognitionRef.current = recognition;
       }
 
       // Web Audio for live level + timeline
-      const ctx       = new AudioContext();
+      const ctx = new AudioContext();
       audioCtxRef.current = ctx;
-      const source    = ctx.createMediaStreamSource(micStream);
-      const analyser  = ctx.createAnalyser();
+      const source = ctx.createMediaStreamSource(micStream);
+      const analyser = ctx.createAnalyser();
       analyser.fftSize = 512;
       source.connect(analyser);
       analyserRef.current = analyser;
@@ -275,7 +275,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 
     } catch {
       // Stop recognition if mic fails
-      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch (e) { }
       setError('Microphone access denied. Please allow microphone access and try again.');
       recordingRef.current = false;
     }
@@ -289,7 +289,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
     setAudioLevel(0);
 
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch(e){}
+      try { recognitionRef.current.stop(); } catch (e) { }
     }
 
     if (recorderRef.current?.state === 'recording') {
@@ -309,9 +309,9 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
     }
 
     try {
-      const blob   = new Blob(chunksRef.current, { type: 'audio/webm' });
-      const ab     = await blob.arrayBuffer();
-      const actx   = new AudioContext();
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      const ab = await blob.arrayBuffer();
+      const actx = new AudioContext();
       const buffer = await actx.decodeAudioData(ab);
       actx.close();
 
@@ -319,7 +319,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       // Skip if SpeechRecognition was unavailable (network error / cloud SR down)
       const srWorked = srAvailableRef.current && spokenTextRef.current.length > 0;
       let similarity = 1.0; // default: skip check
-      
+
       if (srWorked) {
         const userSpoken = spokenTextRef.current;
         // Normalize: lowercase, remove punctuation, expand known compound brand names
@@ -334,7 +334,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
         const wordsSpoken = normalize(userSpoken).split(' ').filter(Boolean);
         const matchCount = wordsRequired.filter(w => wordsSpoken.includes(w)).length;
         similarity = wordsRequired.length === 0 ? 0 : matchCount / Math.max(wordsRequired.length, wordsSpoken.length);
-        
+
         if (similarity < 0.8) {
           setError(`Please read the exact sentence shown. Heard: "${userSpoken || '[Nothing distinct]'}"`);
           setStatus(S.FAIL);
@@ -344,7 +344,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 
       // 3. Voice activity + Pitch + Energy + Speech Frame Check
       const { hasVoice, rms } = detectVoiceActivity(buffer);
-      const { frequency }     = detectPitch(buffer);
+      const { frequency } = detectPitch(buffer);
 
       // Speech Detection Check (At least 30% frames contain speech > 0.02)
       const activeFrames = audioTimelineRef.current.filter(val => val > 0.02).length;
@@ -405,14 +405,14 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
     return () => {
       clearInterval(timerRef.current);
       cancelAnimationFrame(levelRafRef.current);
-      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch(e){}
+      if (recognitionRef.current) try { recognitionRef.current.stop(); } catch (e) { }
       micStreamRef.current?.getTracks().forEach(t => t.stop());
       audioCtxRef.current?.close();
     };
   }, []);
 
   // ── Helpers for render ────────────────────────────────────────────────
-  const timeColor  = timeLeft <= 3 ? 'text-red-500' : timeLeft <= 5 ? 'text-yellow-500' : 'text-blue-600';
+  const timeColor = timeLeft <= 3 ? 'text-red-500' : timeLeft <= 5 ? 'text-yellow-500' : 'text-blue-600';
   const barPercent = (timeLeft / VERIFICATION.MAX_RECORDING_SECONDS) * 100;
 
   return (
@@ -442,43 +442,42 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
         </div>
       )}
 
-        {/* Camera feed — full size like FaceDetection */}
-        <div className="relative inline-block mb-4">
-          <video ref={videoRef} style={{ display: 'none' }} muted playsInline />
-          <canvas
-            ref={canvasRef}
-            width={640}
-            height={480}
-            className={`rounded-xl mx-auto block max-w-full border-4 transition-colors duration-300 ${
-              status === S.RECORDING ? 'border-red-400' : 'border-blue-200'
+      {/* Camera feed — full size like FaceDetection */}
+      <div className="relative inline-block mb-4">
+        <video ref={videoRef} style={{ display: 'none' }} muted playsInline />
+        <canvas
+          ref={canvasRef}
+          width={640}
+          height={480}
+          className={`rounded-xl mx-auto block max-w-full border-4 transition-colors duration-300 ${status === S.RECORDING ? 'border-red-400' : 'border-blue-200'
             }`}
-            style={{ maxHeight: 320 }}
-          />
-          {status === S.RECORDING && (
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 rounded-full px-3 py-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-white text-xs font-bold tracking-wide">RECORDING</span>
-            </div>
-          )}
+          style={{ maxHeight: 320 }}
+        />
+        {status === S.RECORDING && (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 rounded-full px-3 py-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-white text-xs font-bold tracking-wide">RECORDING</span>
+          </div>
+        )}
 
-          {/* Mic level bar — overlaid bottom-right corner */}
-          {status === S.RECORDING && (
-            <div className="absolute bottom-3 right-3 flex items-end gap-0.5" style={{ height: 40 }}>
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-1.5 rounded-sm transition-all duration-75"
-                  style={{
-                    height: `${Math.max(4, (i / 7) * 40)}px`,
-                    backgroundColor: audioLevel > ((i + 1) / 8) * 100
-                      ? (audioLevel > 70 ? '#22c55e' : '#3b82f6')
-                      : 'rgba(255,255,255,0.2)',
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Mic level bar — overlaid bottom-right corner */}
+        {status === S.RECORDING && (
+          <div className="absolute bottom-3 right-3 flex items-end gap-0.5" style={{ height: 40 }}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-1.5 rounded-sm transition-all duration-75"
+                style={{
+                  height: `${Math.max(4, (i / 7) * 40)}px`,
+                  backgroundColor: audioLevel > ((i + 1) / 8) * 100
+                    ? (audioLevel > 70 ? '#22c55e' : '#3b82f6')
+                    : 'rgba(255,255,255,0.2)',
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Countdown timer bar */}
       {status === S.RECORDING && (
@@ -529,23 +528,22 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 
       {/* Results panel */}
       {(status === S.PASS || status === S.FAIL) && result && (
-        <div className={`max-w-xs mx-auto rounded-2xl p-5 mb-4 border-2 ${
-          status === S.PASS
+        <div className={`max-w-xs mx-auto rounded-2xl p-5 mb-4 border-2 ${status === S.PASS
             ? 'bg-green-50 border-green-400'
             : 'bg-red-50 border-red-400'
-        }`}>
+          }`}>
           <p className={`font-bold text-xl mb-3 ${status === S.PASS ? 'text-green-700' : 'text-red-600'}`}>
             {status === S.PASS ? '✅ Voice Verified!' : '❌ Verification Failed'}
           </p>
           <div className="text-sm space-y-1 text-left">
             <ResultRow label="Speech detected" ok={result.hasVoice} value={result.hasVoice ? 'Yes' : 'No'} />
-            <ResultRow label="Voice level"     ok={result.rms > VERIFICATION.MIN_VOICE_RMS}
-                       value={`RMS ${(result.rms * 100).toFixed(1)}%`} />
-            <ResultRow label="Pitch"           ok={result.inHumanRange}
-                       value={result.frequency > 0 ? `${result.frequency} Hz` : 'Not detected'} />
+            <ResultRow label="Voice level" ok={result.rms > VERIFICATION.MIN_VOICE_RMS}
+              value={`RMS ${(result.rms * 100).toFixed(1)}%`} />
+            <ResultRow label="Pitch" ok={result.inHumanRange}
+              value={result.frequency > 0 ? `${result.frequency} Hz` : 'Not detected'} />
             {result.lipMovementPct !== null && (
               <ResultRow label="Lip movement" ok={result.lipLivenessOk}
-                       value={`${Math.min(100, result.lipMovementPct)}% activity`} />
+                value={`${Math.min(100, result.lipMovementPct)}% activity`} />
             )}
           </div>
           {status === S.FAIL && (

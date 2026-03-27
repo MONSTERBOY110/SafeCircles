@@ -38,11 +38,10 @@ export default function EmergencyButtons({ circleId }) {
         <button
           onClick={handleAlertCircle}
           disabled={alertSent}
-          className={`flex flex-col items-center justify-center p-4 rounded-xl font-semibold text-sm transition ${
-            alertSent
+          className={`flex flex-col items-center justify-center p-4 rounded-xl font-semibold text-sm transition ${alertSent
               ? 'bg-red-100 text-red-500 border-2 border-red-400'
               : 'bg-red-600 text-white hover:bg-red-700 emergency-pulse'
-          }`}
+            }`}
         >
           <span className="text-2xl mb-1">🚨</span>
           {alertSent ? 'Alert Sent!' : 'Alert Circle'}
