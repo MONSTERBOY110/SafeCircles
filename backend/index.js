@@ -1,13 +1,12 @@
-const functions = require('firebase-functions/v1');
-const admin = require('firebase-admin');
+const admin = require("firebase-admin");
 
 admin.initializeApp();
 
 // Import function handlers
-const { matchUsers } = require('./matchUsers');
-const { completeTrip } = require('./completeTrip');
-const { reportIncident } = require('./reportIncident');
-const { cleanupExpiredTrips } = require('./cleanupExpiredTrips');
+const {matchUsers} = require("./matchUsers");
+const {completeTrip} = require("./completeTrip");
+const {reportIncident} = require("./reportIncident");
+const {cleanupExpiredTrips} = require("./cleanupExpiredTrips");
 
 // Export all Cloud Functions
 exports.matchUsers = matchUsers;

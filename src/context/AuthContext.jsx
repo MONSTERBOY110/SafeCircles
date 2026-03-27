@@ -64,6 +64,7 @@ export function AuthProvider({ children }) {
         verification_status: 'PENDING',
         reputation_score: 0,
         successful_trips: 0,
+        gender: 'female',
         created_at: serverTimestamp(),
         last_active: serverTimestamp(),
       };

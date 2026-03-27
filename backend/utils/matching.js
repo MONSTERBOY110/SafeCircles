@@ -4,21 +4,25 @@
 
 /**
  * Check if two departure_window objects overlap.
- * @param {{ start, end }} w1
- * @param {{ start, end }} w2
- * @returns {boolean}
+ * @param {Object} w1
+ * @param {number} w1.start
+ * @param {number} w1.end
+ * @param {Object} w2
+ * @param {number} w2.start
+ * @param {number} w2.end
+ * @return {boolean}
  */
 function checkTimeOverlap(w1, w2) {
   const toDate = (v) => (v && v.toDate ? v.toDate() : new Date(v));
-  const s1 = toDate(w1.start), e1 = toDate(w1.end);
-  const s2 = toDate(w2.start), e2 = toDate(w2.end);
+  const s1 = toDate(w1.start); const e1 = toDate(w1.end);
+  const s2 = toDate(w2.start); const e2 = toDate(w2.end);
   return !(e1 < s2 || s1 > e2);
 }
 
 /**
  * Sort an array of candidate trips by reputation (descending).
- * @param {{ reputation: number }[]} candidates
- * @returns {typeof candidates}
+ * @param {Array<{reputation: number}>} candidates
+ * @return {Array<{reputation: number}>}
  */
 function sortByReputation(candidates) {
   return [...candidates].sort((a, b) => b.reputation - a.reputation);
@@ -26,9 +30,11 @@ function sortByReputation(candidates) {
 
 /**
  * Calculate walking ETA between two points.
- * @param {number} lat1 @param {number} lon1
- * @param {number} lat2 @param {number} lon2
- * @returns {number} Minutes
+ * @param {number} lat1
+ * @param {number} lon1
+ * @param {number} lat2
+ * @param {number} lon2
+ * @return {number} Minutes
  */
 function calculateETA(lat1, lon1, lat2, lon2) {
   const toRad = (d) => d * Math.PI / 180;
@@ -42,4 +48,4 @@ function calculateETA(lat1, lon1, lat2, lon2) {
   return Math.round((distKm / 5) * 60); // 5 km/h walking
 }
 
-module.exports = { checkTimeOverlap, sortByReputation, calculateETA };
+module.exports = {checkTimeOverlap, sortByReputation, calculateETA};
