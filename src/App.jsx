@@ -39,6 +39,10 @@ function App() {
             element={<ProtectedRoute><TripsPage /></ProtectedRoute>}
           />
           <Route
+            path="/circle"
+            element={<ProtectedRoute><CirclePage /></ProtectedRoute>}
+          />
+          <Route
             path="/circle/:circleId"
             element={<ProtectedRoute><CirclePage /></ProtectedRoute>}
           />
