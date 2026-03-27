@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import CreateTripPage from './pages/CreateTripPage';
 import CirclePage from './pages/CirclePage';
 import ProfilePage from './pages/ProfilePage';
+import TripsPage from './pages/TripsPage';
 import NotFound from './pages/NotFound';
 import VerificationFlow from './components/Verification/VerificationFlow';
 
@@ -32,6 +33,10 @@ function App() {
           <Route
             path="/create-trip"
             element={<ProtectedRoute><CreateTripPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/trips"
+            element={<ProtectedRoute><TripsPage /></ProtectedRoute>}
           />
           <Route
             path="/circle/:circleId"

@@ -10,6 +10,7 @@ import {
   doc,
   writeBatch,
   getDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { geohashEncode } from '../utils/geohash';
@@ -32,8 +33,7 @@ export async function createTrip(tripData) {
   const destGeohash = geohashEncode(destCoords.lat, destCoords.lng, 7);
 
   const tripRef = await addDoc(collection(db, 'trips'), {
-    user_id: user.uid,
-    user_name: user.displayName || 'User',
+    userId: user.uid,
     origin_landmark: origin,
     destination_landmark: destination,
     origin_coords: originCoords,
@@ -73,7 +73,7 @@ export function listenToTrip(tripId, callback) {
 export function listenToUserTrips(userId, callback) {
   const q = query(
     collection(db, 'trips'),
-    where('user_id', '==', userId),
+    where('userId', '==', userId),
     where('status', 'in', ['pending', 'active', 'matched'])
   );
   return onSnapshot(q, (snapshot) => {
@@ -106,16 +106,30 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     const tripsSnapshot = await getDocs(tripsQuery);
     console.log(`📊 Found ${tripsSnapshot.size} pending trips in database`);
 
+    // DEBUG: Log trip fields to diagnose issues
+    console.log('Trip fields check:', tripsSnapshot.docs.slice(0, 3).map(d => ({
+      id: d.id,
+      userId: d.data().userId,
+      hasUserId: !!d.data().userId
+    })));
+
     // Step 2: Filter trips on frontend
     const matches = [];
+    const uniqueUserIds = new Set();
     const newOriginPrefix = newTripData.origin_geohash.substring(0, 4);
 
     for (const tripDoc of tripsSnapshot.docs) {
       const trip = tripDoc.data();
       const tripId = tripDoc.id;
 
+      // VALIDATION: Ensure userId exists
+      if (!trip.userId) {
+        console.log(`⏭️  Skipping trip - missing userId`, tripId);
+        continue;
+      }
+
       // Skip current user's trips
-      if (trip.user_id === userId) {
+      if (trip.userId === userId) {
         console.log(`⏭️  Skipping own trip: ${tripId}`);
         continue;
       }
@@ -138,19 +152,40 @@ export async function findAndMatchTrips(newTripData, newTripId) {
 
       console.log(`✅ Geohash match found: ${tripId}`);
 
-      // Fetch user data to verify verification status if needed
-      const userDoc = await getDoc(doc(db, 'users', trip.user_id));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        if (userData.verification_status === 'VERIFIED') {
-          matches.push({
-            tripId,
-            userId: trip.user_id,
-            userName: trip.user_name || 'User',
-            reputation: userData.reputation_score || 0,
-          });
-          console.log(`✅ User ${trip.user_id} verified, adding to matches`);
-        }
+      // STRICT VALIDATION: Fetch and validate user data
+      const userRef = doc(db, 'users', trip.userId);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        console.log(`⏭️  User not found in database: ${trip.userId}`);
+        continue;
+      }
+
+      const userData = userDoc.data();
+      
+      // Validate required user fields
+      if (!userData?.name) {
+        console.log(`⏭️  User has no name field: ${trip.userId}`);
+        continue;
+      }
+
+      if (userData.verification_status !== 'VERIFIED') {
+        console.log(`⏭️  User not verified: ${trip.userId}`);
+        continue;
+      }
+
+      // DEDUPLICATION: Only add if userId not already in matches
+      if (!uniqueUserIds.has(trip.userId)) {
+        uniqueUserIds.add(trip.userId);
+        matches.push({
+          tripId,
+          userId: trip.userId,
+          name: userData.name,
+          reputation: userData.reputation_score || 0,
+        });
+        console.log(`✅ User ${trip.userId} (${userData.name}) verified, adding to matches`);
+      } else {
+        console.log(`⏭️  User ${trip.userId} already in matches, skipping duplicate`);
       }
     }
 
@@ -167,24 +202,59 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     const selectedMatches = matches.slice(0, 4);
     console.log(`👥 Selected ${selectedMatches.length} matches for circle`);
 
-    // Step 5: Create SafeCircle document
-    const allMemberIds = [userId, ...selectedMatches.map(m => m.userId)];
+    // VALIDATION: Filter only valid members before creating circle
+    const validMembers = selectedMatches.filter(m => {
+      if (!m.userId || !m.name) {
+        console.log(`⏭️  Filtering out invalid member:`, m);
+        return false;
+      }
+      return true;
+    });
+
+    if (validMembers.length < 1) {
+      console.log('❌ Not enough valid members after filtering');
+      return null;
+    }
+
+    console.log(`✅ ${validMembers.length} valid members for circle`);
+
+    // Step 5: Create SafeCircle document with VALIDATED data only
+    // DEDUPLICATION: Ensure no duplicate userIds in final member list
+    const uniqueMemberIds = new Set([userId, ...validMembers.map(m => m.userId)]);
+    const allMemberIds = Array.from(uniqueMemberIds);
+    console.log(`👥 Final unique members: ${allMemberIds.length}`);
+    
+    // Ensure all required fields exist
+    const meetingPointName = newTripData.origin_landmark || 'Meeting Point';
+    const meetingPointLat = newTripData.origin_coords?.lat;
+    const meetingPointLng = newTripData.origin_coords?.lng;
+    
+    if (meetingPointLat === undefined || meetingPointLng === undefined) {
+      console.error('❌ Invalid meeting point coordinates');
+      return null;
+    }
+
     const circleData = {
       member_ids: allMemberIds,
       meeting_point: {
-        name: newTripData.origin_landmark,
-        lat: newTripData.origin_coords.lat,
-        lng: newTripData.origin_coords.lng,
+        name: meetingPointName,
+        lat: meetingPointLat,
+        lng: meetingPointLng,
       },
-      dest_coords: newTripData.dest_coords,
-      route_summary:
-        `${newTripData.origin_landmark} → ${newTripData.destination_landmark}`,
-      estimated_departure: newTripData.departure_window.start,
+      dest_coords: newTripData.dest_coords || { lat: 0, lng: 0 },
+      route_summary: `${newTripData.origin_landmark || 'Unknown'} → ${newTripData.destination_landmark || 'Unknown'}`,
+      estimated_departure: newTripData.departure_window?.start || new Date(),
       status: 'forming',
-      circle_type: newTripData.circle_type,
+      circle_type: newTripData.circle_type || 'Mixed',
       created_at: serverTimestamp(),
       expires_at: new Date(Date.now() + 90 * 60 * 1000),
     };
+
+    console.log('📝 Circle data to create:', {
+      members: allMemberIds.length,
+      meetingPoint: circleData.meeting_point.name,
+      status: circleData.status,
+    });
 
     const circleRef = await addDoc(collection(db, 'safe_circles'), circleData);
     console.log(`✅ SafeCircle created: ${circleRef.id}`);
@@ -199,11 +269,13 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     });
 
     // Update all matched trips
-    selectedMatches.forEach(match => {
-      batch.update(doc(db, 'trips', match.tripId), {
-        circle_id: circleRef.id,
-        status: 'matched',
-      });
+    validMembers.forEach(match => {
+      if (match.tripId) {
+        batch.update(doc(db, 'trips', match.tripId), {
+          circle_id: circleRef.id,
+          status: 'matched',
+        });
+      }
     });
 
     await batch.commit();
@@ -218,5 +290,98 @@ export async function findAndMatchTrips(newTripData, newTripId) {
   } catch (error) {
     console.error('❌ Matching error:', error);
     return null;
+  }
+}
+
+/**
+ * Delete a trip (only if status is 'pending')
+ */
+export async function deleteTrip(tripId) {
+  try {
+    const tripDoc = await getDoc(doc(db, 'trips', tripId));
+    
+    if (!tripDoc.exists()) {
+      throw new Error('Trip not found');
+    }
+
+    const trip = tripDoc.data();
+    
+    // Only allow delete if trip is pending
+    if (trip.status !== 'pending') {
+      throw new Error('Can only delete trips with pending status');
+    }
+
+    await deleteDoc(doc(db, 'trips', tripId));
+    console.log(`✅ Trip deleted: ${tripId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Delete trip error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get circle members with their details
+ */
+export async function getCircleMembers(circleId) {
+  try {
+    const circleDoc = await getDoc(doc(db, 'safe_circles', circleId));
+    
+    if (!circleDoc.exists()) {
+      throw new Error('Circle not found');
+    }
+
+    const circle = circleDoc.data();
+    const memberIds = circle.member_ids || [];
+
+    const memberDetails = await Promise.all(
+      memberIds.map(async (uid) => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            return {
+              uid,
+              name: userData.name || 'User',
+              reputation: userData.reputation_score || 0,
+              verified: userData.verification_status === 'VERIFIED',
+            };
+          }
+        } catch (err) {
+          console.error(`Error fetching member ${uid}:`, err);
+        }
+        return { uid, name: 'User', reputation: 0, verified: false };
+      })
+    );
+
+    return memberDetails;
+  } catch (error) {
+    console.error('❌ Get circle members error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get trip with member information
+ */
+export async function getTripWithMembers(tripId) {
+  try {
+    const tripDoc = await getDoc(doc(db, 'trips', tripId));
+    
+    if (!tripDoc.exists()) {
+      throw new Error('Trip not found');
+    }
+
+    const trip = tripDoc.data();
+
+    if (trip.circle_id) {
+      const members = await getCircleMembers(trip.circle_id);
+      return { id: tripDoc.id, ...trip, members };
+    }
+
+    return { id: tripDoc.id, ...trip, members: [] };
+  } catch (error) {
+    console.error('❌ Get trip with members error:', error);
+    throw error;
   }
 }

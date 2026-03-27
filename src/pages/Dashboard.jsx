@@ -51,10 +51,10 @@ export default function Dashboard() {
       return;
     }
 
-    // Query trips using correct field name: user_id
+    // Query trips using correct field name: userId
     const q = query(
       collection(db, 'trips'),
-      where('user_id', '==', user.uid)
+      where('userId', '==', user.uid)
     );
 
     const unsub = onSnapshot(
