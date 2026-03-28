@@ -1,3 +1,5 @@
+<img src="https://github.com/MONSTERBOY110/SafeCircles/blob/main/public/readme%20hero.png" width="100%" alt="Readme banner"
+style="border-radius: 15px; box-shadow: inset 0 -50px 100px rgba(0,0,0,0.4);" />
 # SafeCircles 🛡️
 
 **Real-time Safety Networks for Every Journey**
