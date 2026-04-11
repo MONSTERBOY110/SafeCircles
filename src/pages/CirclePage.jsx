@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../services/firebase';
 import { getCircleMembers } from '../services/matching';
 import { 
-  collection, query, where, onSnapshot, getDoc, doc, 
+  collection, query, where, onSnapshot, orderBy, getDoc, doc, 
   addDoc, serverTimestamp, writeBatch, updateDoc 
 } from 'firebase/firestore';
 import { MapContainer, TileLayer, Marker, Circle as LeafletCircle, useMap } from 'react-leaflet';
@@ -33,6 +33,7 @@ export default function CirclePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const userId = auth.currentUser?.uid;
+  const currentUser = user;
 
   const [circleId, setCircleId] = useState(paramCircleId);
   const [circle, setCircle] = useState(null);
@@ -43,6 +44,10 @@ export default function CirclePage() {
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [lastSafetyPing, setLastSafetyPing] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState('');
+  const messagesEndRef = useRef(null);
 
   // Find active circle if no circleId provided
   useEffect(() => {
@@ -108,6 +113,51 @@ export default function CirclePage() {
 
     return unsubscribe;
   }, [circleId, navigate]);
+
+  useEffect(() => {
+    if (!circleId) return;
+
+    const q = query(
+      collection(db, 'safe_circles', circleId, 'messages'),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+
+      setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [circleId]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    const fetchUser = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUser();
+  }, [currentUser]);
 
   // Get user location
   useEffect(() => {
@@ -220,6 +270,30 @@ export default function CirclePage() {
       setTimeout(() => setLastSafetyPing(null), 3000);
     } catch (error) {
       toast.error('Failed to send safety ping');
+    }
+  };
+
+  const handleSendMessage = async () => {
+    const safeMessage = messageText.trim();
+    const senderId = currentUser?.uid || userId;
+    const senderName = userData?.name || currentUser?.email || 'User';
+
+    if (!safeMessage || !circleId || !senderId || !senderName) return;
+
+    try {
+      await addDoc(
+        collection(db, 'safe_circles', circleId, 'messages'),
+        {
+          text: safeMessage,
+          senderId,
+          senderName,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      setMessageText('');
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
@@ -428,6 +502,53 @@ export default function CirclePage() {
               }`}
             >
               Avoid
+            </button>
+          </div>
+        </div>
+
+        {/* Chat Composer */}
+        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            Circle Chat
+          </h2>
+          <div className="mb-4 h-[300px] overflow-y-auto space-y-3 pr-1">
+            {messages.length === 0 ? (
+              <p className="text-sm text-[#eae0c8]/60">No messages yet</p>
+            ) : (
+              messages.map((msg) => (
+                <div key={msg.id} className="rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">
+                    {msg.senderName || 'User'}
+                  </p>
+                  <p className="mt-1 text-sm text-[#eae0c8]">{msg.text}</p>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Send a message to your circle..."
+              maxLength={300}
+              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[#eae0c8] placeholder:text-[#eae0c8]/40 outline-none focus:border-blue-400/40"
+            />
+            <button
+              type="button"
+              onClick={handleSendMessage}
+              disabled={!messageText.trim()}
+              className="rounded-xl bg-[#eae0c8] px-5 py-3 font-semibold text-[#0B132B] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Send
             </button>
           </div>
         </div>
