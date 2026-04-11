@@ -19,63 +19,60 @@ export default function SafeCircleView({ circleId }) {
     return unsub;
   }, [circleId]);
 
-  if (loading) return (
-    <div className="flex justify-center items-center min-h-[400px]">
-      <div className="text-xl text-gray-500 animate-pulse">Loading circle...</div>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="animate-pulse text-xl text-[#EAE0C8]/50">Loading circle...</div>
+      </div>
+    );
+  }
 
-  if (!circleData) return (
-    <div className="flex justify-center items-center min-h-[400px]">
-      <div className="text-xl text-red-500">Circle not found</div>
-    </div>
-  );
+  if (!circleData) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-xl text-red-400">Circle not found</div>
+      </div>
+    );
+  }
 
   const user = auth.currentUser;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-[#0B132B] py-8">
       <div className="container-max space-y-6">
-
-        {/* Circle Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl p-6">
+        <div className="rounded-2xl bg-blue-600/90 p-6 text-[#EAE0C8]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold mb-1">🛡️ Your Safe Circle</h2>
-              <p className="text-blue-100 text-sm">{circleData.route_summary}</p>
+              <h2 className="mb-1 text-2xl font-bold">Your Safe Circle</h2>
+              <p className="text-sm text-[#EAE0C8]/80">{circleData.route_summary}</p>
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold">{circleData.member_ids?.length || 0}</div>
-              <div className="text-blue-200 text-xs">members</div>
+              <div className="text-xs text-[#EAE0C8]/70">members</div>
             </div>
           </div>
         </div>
 
-        {/* Meeting Point */}
         {circleData.meeting_point && (
-          <div className="bg-blue-50 border-l-4 border-blue-600 p-5 rounded-xl">
-            <h3 className="font-bold text-gray-800 mb-1 flex items-center gap-2">📍 Meeting Point</h3>
-            <p className="text-lg font-semibold text-gray-800">{circleData.meeting_point.name}</p>
-            <div className="flex gap-4 mt-2 text-sm text-gray-600">
-              {circleData.meeting_point.cctv_coverage && <span>🎥 CCTV Coverage</span>}
-              {circleData.meeting_point.police_booth_nearby && <span>👮 Police Booth Nearby</span>}
+          <div className="rounded-xl border-l-4 border-blue-500 bg-[#111A3A]/70 p-5">
+            <h3 className="mb-1 flex items-center gap-2 font-bold text-[#EAE0C8]">Meeting Point</h3>
+            <p className="text-lg font-semibold text-[#EAE0C8]">{circleData.meeting_point.name}</p>
+            <div className="mt-2 flex gap-4 text-sm text-[#EAE0C8]/60">
+              {circleData.meeting_point.cctv_coverage && <span>CCTV Coverage</span>}
+              {circleData.meeting_point.police_booth_nearby && <span>Police Booth Nearby</span>}
             </div>
           </div>
         )}
 
-        {/* Map */}
-        <div className="bg-white rounded-xl shadow p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Route Map</h3>
+        <div className="rounded-xl border border-white/5 bg-[#111A3A]/70 p-5 shadow">
+          <h3 className="mb-4 font-bold text-[#EAE0C8]">Route Map</h3>
           <CircleMap circleData={circleData} />
         </div>
 
-        {/* Members */}
-        <div className="bg-white rounded-xl shadow p-5">
-          <h3 className="font-bold text-gray-800 mb-4">
-            Circle Members ({circleData.member_ids?.length || 0})
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {(circleData.member_ids || []).map(memberId => (
+        <div className="rounded-xl border border-white/5 bg-[#111A3A]/70 p-5 shadow">
+          <h3 className="mb-4 font-bold text-[#EAE0C8]">Circle Members ({circleData.member_ids?.length || 0})</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {(circleData.member_ids || []).map((memberId) => (
               <MemberCard
                 key={memberId}
                 userId={memberId}
@@ -85,13 +82,11 @@ export default function SafeCircleView({ circleId }) {
           </div>
         </div>
 
-        {/* Chat */}
-        <div className="bg-white rounded-xl shadow p-5">
-          <h3 className="font-bold text-gray-800 mb-4">Group Chat</h3>
+        <div className="rounded-xl border border-white/5 bg-[#111A3A]/70 p-5 shadow">
+          <h3 className="mb-4 font-bold text-[#EAE0C8]">Group Chat</h3>
           <CircleChat circleId={circleId} />
         </div>
 
-        {/* Emergency */}
         <EmergencyButtons circleId={circleId} />
       </div>
     </div>

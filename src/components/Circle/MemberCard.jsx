@@ -8,37 +8,32 @@ export default function MemberCard({ userId, isYou }) {
 
   useEffect(() => {
     if (!userId) return;
-    getDoc(doc(db, 'users', userId)).then(snap => {
+    getDoc(doc(db, 'users', userId)).then((snap) => {
       if (snap.exists()) setMember(snap.data());
       setLoading(false);
     });
   }, [userId]);
 
-  if (loading) return (
-    <div className="skeleton h-20 rounded-xl" />
-  );
+  if (loading) return <div className="skeleton h-20 rounded-xl" />;
   if (!member) return null;
 
   return (
-    <div className={`border rounded-xl p-4 flex items-center gap-4 ${isYou ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white'}`}>
-      {/* Avatar */}
-      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+    <div className={`flex items-center gap-4 rounded-xl border p-4 ${isYou ? 'border-blue-400 bg-blue-500/10' : 'border-white/5 bg-[#111A3A]/70'}`}>
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-xl font-bold text-[#EAE0C8]">
         {member.name?.[0]?.toUpperCase() || '?'}
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="font-bold text-gray-800 truncate">
-            {member.name || 'User'}
-          </p>
-          {isYou && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">You</span>}
+          <p className="truncate font-bold text-[#EAE0C8]">{member.name || 'User'}</p>
+          {isYou && <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-[#EAE0C8]">You</span>}
         </div>
-        <div className="flex items-center gap-2 mt-1">
+        <div className="mt-1 flex items-center gap-2">
           {member.verification_status === 'VERIFIED' && (
-            <span className="text-xs text-green-600 font-semibold">✅ Verified</span>
+            <span className="text-xs font-semibold text-green-400">Verified</span>
           )}
-          <span className="text-xs text-gray-500">⭐ {member.reputation_score || 0} rep</span>
-          <span className="text-xs text-gray-400">{member.successful_trips || 0} trips</span>
+          <span className="text-xs text-[#EAE0C8]/60">{member.reputation_score || 0} rep</span>
+          <span className="text-xs text-[#EAE0C8]/50">{member.successful_trips || 0} trips</span>
         </div>
       </div>
     </div>

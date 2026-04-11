@@ -142,19 +142,19 @@ export default function TripsPage() {
 
         <main className="flex-1 w-full px-4 py-6 pb-32 max-w-2xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Your Trips</h1>
-            <p className="text-gray-400">Track your pending and matched SafeCircle trips</p>
+            <h1 className="text-3xl font-bold text-[#EAE0C8] mb-2">Your Trips</h1>
+            <p className="text-[#EAE0C8]/50">Track your pending and matched SafeCircle trips</p>
           </div>
 
           {loading || authLoading ? (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-8 h-8 text-blue-400 animate-spin mr-3" />
-              <span className="text-gray-400">Loading trips...</span>
+              <span className="text-[#EAE0C8]/50">Loading trips...</span>
             </div>
           ) : trips.length === 0 ? (
-            <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-[2rem] p-10 text-center shadow-2xl">
-              <AlertCircle className="w-12 h-12 text-[#9CA3AF] mx-auto mb-4" />
-              <p className="text-xl font-semibold text-white">No trips yet. Create one from dashboard.</p>
+            <div className="backdrop-blur-xl bg-[#111A3A]/70 border border-white/5 rounded-[2rem] p-10 text-center shadow-2xl">
+              <AlertCircle className="w-12 h-12 text-[#EAE0C8]/40 mx-auto mb-4" />
+              <p className="text-xl font-semibold text-[#EAE0C8]">No trips yet. Create one from dashboard.</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -171,17 +171,17 @@ export default function TripsPage() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h2 className="text-xl font-extrabold text-white">Finding your SafeCircle...</h2>
-                          <p className="text-sm text-blue-100/70 mt-1">Matching nearby verified users</p>
+                          <h2 className="text-xl font-extrabold text-[#EAE0C8]">Finding your SafeCircle...</h2>
+                          <p className="text-sm text-[#EAE0C8]/60 mt-1">Matching nearby verified users</p>
 
                           {showFallback && (
-                            <div className="mt-4 rounded-2xl border border-white/10 bg-[#0B132B]/50 p-4">
+                            <div className="mt-4 rounded-2xl border border-white/5 bg-[#0B132B]/50 p-4">
                               <p className="text-sm text-[#eae0c8]">No nearby users found yet. Still searching...</p>
                               <button
                                 type="button"
                                 onClick={() => handleTryAgain(trip.id)}
                                 disabled={retryingTripId === trip.id}
-                                className="mt-4 inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-white/10 disabled:opacity-50"
+                                className="mt-4 inline-flex items-center justify-center rounded-xl border border-white/5 bg-[#111A3A]/70 px-4 py-2 text-sm font-semibold text-[#EAE0C8] transition-all hover:bg-[#111A3A] disabled:opacity-50"
                               >
                                 {retryingTripId === trip.id ? (
                                   <>
@@ -197,17 +197,17 @@ export default function TripsPage() {
 
                           <div className="mt-5 grid gap-3 sm:grid-cols-2">
                             <div className="bg-[#0B132B]/50 border border-white/5 rounded-2xl p-4">
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-[#9CA3AF] mb-2">Route</p>
-                              <p className="text-sm text-white font-semibold truncate">{trip.origin_landmark}</p>
-                              <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-[#EAE0C8]/50 mb-2">Route</p>
+                              <p className="text-sm text-[#EAE0C8] font-semibold truncate">{trip.origin_landmark}</p>
+                              <div className="flex items-center gap-2 text-sm text-[#EAE0C8]/50 mt-1">
                                 <ArrowRight className="w-4 h-4" />
                                 <span className="truncate">{trip.destination_landmark}</span>
                               </div>
                             </div>
 
                             <div className="bg-[#0B132B]/50 border border-white/5 rounded-2xl p-4">
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-[#9CA3AF] mb-2">Departure Window</p>
-                              <div className="flex items-center gap-2 text-sm text-white">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-[#EAE0C8]/50 mb-2">Departure Window</p>
+                              <div className="flex items-center gap-2 text-sm text-[#EAE0C8]">
                                 <Clock className="w-4 h-4 text-blue-300" />
                                 <span>{formatDate(trip.departure_window?.start)} at {formatTime(trip.departure_window?.start)}</span>
                               </div>
@@ -229,17 +229,17 @@ export default function TripsPage() {
                     return (
                       <div
                         key={trip.id}
-                        className="backdrop-blur-xl bg-green-500/10 border border-green-400/20 rounded-[2rem] p-6 shadow-2xl"
+                        className="backdrop-blur-xl bg-[#111A3A]/70 border border-blue-500/20 rounded-[2rem] p-6 shadow-2xl"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div>
-                            <h2 className="text-xl font-extrabold text-white">SafeCircle matched</h2>
-                            <p className="text-sm text-green-100/70 mt-1">
-                              {trip.origin_landmark} <span className="text-white/40 mx-2">to</span> {trip.destination_landmark}
+                            <h2 className="text-xl font-extrabold text-[#EAE0C8]">SafeCircle matched</h2>
+                            <p className="text-sm text-[#EAE0C8]/60 mt-1">
+                              {trip.origin_landmark} <span className="text-[#EAE0C8]/40 mx-2">to</span> {trip.destination_landmark}
                             </p>
                           </div>
 
-                          <div className="px-3 py-1.5 rounded-full bg-green-500/15 border border-green-400/25 text-green-200 text-xs font-semibold uppercase tracking-[0.2em]">
+                          <div className="px-3 py-1.5 rounded-full bg-blue-500/15 border border-blue-400/25 text-blue-300 text-xs font-semibold uppercase tracking-[0.2em]">
                             Matched
                           </div>
                         </div>
@@ -247,8 +247,8 @@ export default function TripsPage() {
                         <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                           <div className="bg-[#0B132B]/50 border border-white/5 rounded-2xl p-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <Users className="w-5 h-5 text-green-300" />
-                              <p className="text-sm font-semibold text-white">Members</p>
+                              <Users className="w-5 h-5 text-blue-300" />
+                              <p className="text-sm font-semibold text-[#EAE0C8]">Members</p>
                             </div>
 
                             {tripMembers.length > 0 ? (
@@ -256,14 +256,14 @@ export default function TripsPage() {
                                 {tripMembers.map((member) => (
                                   <span
                                     key={member.uid}
-                                    className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-[#eae0c8]"
+                                    className="px-3 py-2 rounded-xl bg-[#111A3A]/70 border border-white/5 text-sm text-[#eae0c8]"
                                   >
                                     {member.name}
                                   </span>
                                 ))}
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
+                              <div className="flex items-center gap-2 text-sm text-[#EAE0C8]/50">
                                 <Search className="w-4 h-4" />
                                 <span>Loading members...</span>
                               </div>
@@ -273,7 +273,7 @@ export default function TripsPage() {
                           <div className="bg-[#0B132B]/50 border border-white/5 rounded-2xl p-4">
                             <div className="flex items-center gap-2 mb-3">
                               <MapPin className="w-5 h-5 text-blue-300" />
-                              <p className="text-sm font-semibold text-white">Meeting Point</p>
+                              <p className="text-sm font-semibold text-[#EAE0C8]">Meeting Point</p>
                             </div>
 
                             <p className="text-sm text-[#eae0c8]">
@@ -282,7 +282,7 @@ export default function TripsPage() {
 
                             <Link
                               to={`/circle/${trip.circle_id}`}
-                              className="mt-5 inline-flex w-full items-center justify-center gap-2 bg-[#eae0c8] text-[#0B132B] font-extrabold text-sm py-3 rounded-xl hover:bg-white transition-all"
+                              className="mt-5 inline-flex w-full items-center justify-center gap-2 bg-blue-600 text-[#EAE0C8] font-extrabold text-sm py-3 rounded-xl hover:bg-blue-500 transition-all"
                             >
                               View Circle
                               <ArrowRight className="w-4 h-4" />

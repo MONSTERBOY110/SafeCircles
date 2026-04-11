@@ -28,7 +28,7 @@ function StepProgress({ currentStep }) {
           {currentStep !== 'complete' ? STEP_LABELS[idx] : 'Identity Verified'}
         </p>
       </div>
-      <div className="w-full bg-white/10 rounded-full h-1">
+      <div className="h-1 w-full rounded-full bg-[#111A3A]/70">
         <div
           className="bg-blue-500 h-1 rounded-full transition-all duration-500"
           style={{ width: currentStep === 'complete' ? '100%' : `${((idx + 1) / (STEP_LABELS.length + 1)) * 100}%` }}
@@ -100,7 +100,7 @@ export default function VerificationFlow() {
         {/* Back button */}
         <button
           onClick={() => navigate('/dashboard')}
-          className="absolute -top-2 left-0 flex items-center gap-1.5 text-[#eae0c8]/50 hover:text-[#eae0c8] bg-[#0B132B]/60 hover:bg-[#0B132B]/80 border border-white/10 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:scale-105 hover:shadow-[0_0_12px_rgba(255,255,255,0.05)]"
+          className="absolute -top-2 left-0 flex items-center gap-1.5 rounded-xl border border-white/5 bg-[#0B132B]/60 px-3 py-2 text-sm font-semibold text-[#eae0c8]/50 transition-all hover:scale-105 hover:bg-[#0B132B]/80 hover:text-[#eae0c8] hover:shadow-[0_0_12px_rgba(59,130,246,0.12)]"
           aria-label="Back to dashboard"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -120,7 +120,7 @@ export default function VerificationFlow() {
         <StepProgress currentStep={step} />
 
         {/* Glassmorphism Card */}
-        <div className="bg-[#0B132B]/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl p-6 sm:p-8">
+        <div className="rounded-2xl border border-white/5 bg-[#111A3A]/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
           {step === 'face' && <FaceDetection onFaceDetected={handleFaceDetected} />}
           {step === 'head' && <HeadMovement onHeadMovementComplete={handleHeadMovementComplete} />}
           {step === 'voice' && (
@@ -141,7 +141,7 @@ export default function VerificationFlow() {
               </p>
               <button
                 onClick={() => navigate('/dashboard')}
-                className="inline-flex items-center gap-2 bg-[#eae0c8] text-[#0B132B] font-extrabold text-base px-8 py-3.5 rounded-xl hover:bg-white hover:scale-[1.02] transition-all duration-200 shadow-lg"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-8 py-3.5 text-base font-extrabold text-[#EAE0C8] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-500"
               >
                 Go to Dashboard <ArrowRight className="w-4 h-4" />
               </button>

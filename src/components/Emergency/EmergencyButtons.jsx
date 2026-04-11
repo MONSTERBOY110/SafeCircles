@@ -15,14 +15,14 @@ export default function EmergencyButtons({ circleId }) {
 
     try {
       await addDoc(collection(db, 'safe_circles', circleId, 'messages'), {
-        text: '🚨 EMERGENCY ALERT — I need help! Please stay with me!',
+        text: 'EMERGENCY ALERT - I need help. Please stay with me.',
         sender_id: user.uid,
         sender_name: user.displayName || 'User',
         is_emergency: true,
         created_at: serverTimestamp(),
       });
       setAlertSent(true);
-      toast.success('Emergency alert sent to your circle!');
+      toast.success('Emergency alert sent to your circle');
       setTimeout(() => setAlertSent(false), 10000);
     } catch (err) {
       toast.error('Failed to send alert. Try again.');
@@ -30,44 +30,39 @@ export default function EmergencyButtons({ circleId }) {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-5">🚨 Emergency Features</h3>
+    <div className="rounded-2xl border border-white/5 bg-[#111A3A]/70 p-6 shadow-lg">
+      <h3 className="mb-5 text-xl font-bold text-[#EAE0C8]">Emergency Features</h3>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Alert Circle */}
         <button
           onClick={handleAlertCircle}
           disabled={alertSent}
-          className={`flex flex-col items-center justify-center p-4 rounded-xl font-semibold text-sm transition ${alertSent
-              ? 'bg-red-100 text-red-500 border-2 border-red-400'
-              : 'bg-red-600 text-white hover:bg-red-700 emergency-pulse'
+          className={`flex flex-col items-center justify-center rounded-xl p-4 text-sm font-semibold transition ${alertSent
+              ? 'border-2 border-red-400 bg-red-500/10 text-[#EAE0C8]'
+              : 'bg-red-600 text-[#EAE0C8] hover:bg-red-500 emergency-pulse'
             }`}
         >
-          <span className="text-2xl mb-1">🚨</span>
-          {alertSent ? 'Alert Sent!' : 'Alert Circle'}
+          <span className="mb-1 text-2xl">Alert</span>
+          {alertSent ? 'Alert Sent' : 'Alert Circle'}
         </button>
 
-        {/* Fake Call */}
         <button
           onClick={() => setFakeCallActive(true)}
-          className="flex flex-col items-center justify-center p-4 rounded-xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 transition"
+          className="flex flex-col items-center justify-center rounded-xl bg-green-600 p-4 text-sm font-semibold text-[#EAE0C8] hover:bg-green-500 transition"
         >
-          <span className="text-2xl mb-1">📱</span>
+          <span className="mb-1 text-2xl">Call</span>
           Fake Call
         </button>
 
-        {/* Share Location */}
         <ShareLocation />
 
-        {/* Emergency Services */}
-        <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-orange-600 text-white font-semibold text-sm">
-          <span className="text-2xl mb-1">👮</span>
+        <div className="flex flex-col items-center justify-center rounded-xl bg-[#0B132B]/60 p-4 text-sm font-semibold text-[#EAE0C8] border border-blue-500/20">
+          <span className="mb-1 text-2xl">Police</span>
           <a href="tel:100" className="hover:underline">Police: 100</a>
-          <a href="tel:1090" className="hover:underline text-xs mt-1">Women: 1090</a>
+          <a href="tel:1090" className="mt-1 text-xs text-blue-300 hover:underline">Women: 1090</a>
         </div>
       </div>
 
-      {/* Fake Call Modal */}
       {fakeCallActive && <FakeCall onDismiss={() => setFakeCallActive(false)} />}
     </div>
   );

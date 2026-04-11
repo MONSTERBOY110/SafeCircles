@@ -369,7 +369,7 @@ export default function CirclePage() {
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         {/* Header Card */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h1 className="text-3xl font-bold mb-1">Your SafeCircle</h1>
           <p className="text-[#eae0c8]/60 flex items-center gap-2">
             <MapPin className="w-4 h-4" />
@@ -382,7 +382,7 @@ export default function CirclePage() {
         </div>
 
         {/* Meeting Point Card */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-blue-400" />
             Meeting Point
@@ -395,7 +395,7 @@ export default function CirclePage() {
 
         {/* Live Map */}
         {circle.meeting_point && (
-          <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
+          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
             <MapContainer center={[circle.meeting_point.lat, circle.meeting_point.lng]} zoom={15} className="h-full w-full rounded-lg">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <Marker position={[circle.meeting_point.lat, circle.meeting_point.lng]} />
@@ -405,14 +405,14 @@ export default function CirclePage() {
         )}
 
         {/* Members List */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-400" />
             Members
           </h2>
           <div className="space-y-3">
             {members.map((member, idx) => (
-              <div key={member.uid + idx} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg transition">
+              <div key={member.uid + idx} className="flex items-center justify-between p-3 bg-[#0B132B]/60 hover:bg-[#111A3A] rounded-lg transition">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <div>
@@ -443,10 +443,10 @@ export default function CirclePage() {
 
           <button
             onClick={handleFakeCall}
-            className="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-xl p-4 transition flex flex-col items-center gap-2"
+            className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-xl p-4 transition flex flex-col items-center gap-2"
           >
-            <Phone className="w-6 h-6 text-green-400" />
-            <span className="text-xs font-semibold text-green-300">Fake Call</span>
+            <Phone className="w-6 h-6 text-blue-400" />
+            <span className="text-xs font-semibold text-blue-300">Fake Call</span>
           </button>
 
           <button
@@ -467,7 +467,7 @@ export default function CirclePage() {
         </div>
 
         {/* Safety Ping Buttons */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-sm font-semibold mb-3 text-[#eae0c8]/60 uppercase tracking-wide">Safety Status</h2>
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -486,8 +486,8 @@ export default function CirclePage() {
               disabled={lastSafetyPing === 'moderate'}
               className={`py-3 px-2 rounded-lg font-medium text-xs transition ${
                 lastSafetyPing === 'moderate'
-                  ? 'bg-yellow-500/40 text-yellow-200'
-                  : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300'
+                  ? 'bg-blue-500/40 text-[#EAE0C8]'
+                  : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-300'
               }`}
             >
               Moderate
@@ -507,7 +507,7 @@ export default function CirclePage() {
         </div>
 
         {/* Chat Composer */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-400" />
             Circle Chat
@@ -517,7 +517,7 @@ export default function CirclePage() {
               <p className="text-sm text-[#eae0c8]/60">No messages yet</p>
             ) : (
               messages.map((msg) => (
-                <div key={msg.id} className="rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                <div key={msg.id} className="rounded-xl border border-white/5 bg-[#0B132B]/60 px-4 py-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">
                     {msg.senderName || 'User'}
                   </p>
@@ -540,13 +540,13 @@ export default function CirclePage() {
               }}
               placeholder="Send a message to your circle..."
               maxLength={300}
-              className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[#eae0c8] placeholder:text-[#eae0c8]/40 outline-none focus:border-blue-400/40"
+              className="flex-1 rounded-xl border border-white/5 bg-[#0B132B]/60 px-4 py-3 text-[#eae0c8] placeholder:text-[#eae0c8]/40 outline-none focus:border-blue-400/40"
             />
             <button
               type="button"
               onClick={handleSendMessage}
               disabled={!messageText.trim()}
-              className="rounded-xl bg-[#eae0c8] px-5 py-3 font-semibold text-[#0B132B] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-[#EAE0C8] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Send
             </button>
@@ -565,12 +565,12 @@ export default function CirclePage() {
 
       {/* Fake Call Modal */}
       {showFakeCall && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#111A3A]/95 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center max-w-sm">
-            <Phone className="w-16 h-16 text-green-400 mx-auto mb-4 animate-pulse" />
+        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50">
+          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center max-w-sm">
+            <Phone className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
             <h3 className="text-2xl font-bold text-[#eae0c8] mb-2">Incoming Call</h3>
             <p className="text-[#eae0c8]/60 mb-6">Mom</p>
-            <p className="text-sm text-green-400">
+            <p className="text-sm text-blue-300">
               "I'm calling the police, stay safe"
             </p>
           </div>
@@ -579,8 +579,8 @@ export default function CirclePage() {
 
       {/* Emergency Modal */}
       {showEmergency && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#111A3A]/95 backdrop-blur-md border border-white/10 rounded-2xl p-6 max-w-sm">
+        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50">
+          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 max-w-sm">
             <h3 className="text-xl font-bold text-[#eae0c8] mb-4 flex items-center gap-2">
               <AlertTriangle className="w-6 h-6 text-red-500" />
               Emergency Contacts
@@ -600,7 +600,7 @@ export default function CirclePage() {
               </a>
               <button
                 onClick={() => setShowEmergency(false)}
-                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-3 text-[#eae0c8] font-medium transition"
+                className="w-full bg-[#0B132B]/60 hover:bg-[#0B132B] border border-white/5 rounded-xl py-3 text-[#eae0c8] font-medium transition"
               >
                 Close
               </button>

@@ -9,10 +9,10 @@ export default function UserProfile() {
   if (!user || !userData) return null;
 
   return (
-    <div className="bg-[#0B132B]/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl p-8 max-w-lg mx-auto">
+    <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl shadow-xl p-8 max-w-lg mx-auto">
       {/* Avatar */}
       <div className="flex items-center gap-5 mb-6">
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold flex-shrink-0 shadow-lg">
+        <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-[#EAE0C8] text-4xl font-bold flex-shrink-0 shadow-lg">
           {userData.name?.[0]?.toUpperCase() || '?'}
         </div>
         <div>
@@ -26,14 +26,14 @@ export default function UserProfile() {
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Star className="w-5 h-5 text-yellow-400 fill-current" />
+            <Star className="w-5 h-5 text-blue-400 fill-current" />
             <div className="text-3xl font-bold text-[#eae0c8]">{userData.reputation_score || 0}</div>
           </div>
           <div className="text-xs text-[#eae0c8]/40 uppercase tracking-widest font-semibold mt-1">Reputation Score</div>
         </div>
-        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+        <div className="bg-[#0B132B]/60 border border-blue-500/20 rounded-xl p-4 text-center">
           <div className="flex items-center justify-center gap-1.5 mb-1">
-            <Route className="w-5 h-5 text-green-400" />
+            <Route className="w-5 h-5 text-blue-400" />
             <div className="text-3xl font-bold text-[#eae0c8]">{userData.successful_trips || 0}</div>
           </div>
           <div className="text-xs text-[#eae0c8]/40 uppercase tracking-widest font-semibold mt-1">Safe Trips</div>
