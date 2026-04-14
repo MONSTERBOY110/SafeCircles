@@ -7,7 +7,7 @@ import {
   collection, query, where, onSnapshot, orderBy, getDoc, doc, 
   addDoc, serverTimestamp, writeBatch, updateDoc 
 } from 'firebase/firestore';
-import { MapContainer, TileLayer, Marker, Circle as LeafletCircle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Circle as LeafletCircle, useMap } from 'react-leaflet';
 import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2 } from 'lucide-react';
 import ngeohash from 'ngeohash';
 import toast from 'react-hot-toast';
@@ -26,6 +26,43 @@ function AutoCenterMap({ position }) {
       <LeafletCircle center={position} radius={500} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.1 }} />
     </>
   ) : null;
+}
+
+function FitMapBounds({ positions }) {
+  const map = useMap();
+  const boundsKey = positions
+    .filter(Boolean)
+    .map((position) => position.join(','))
+    .join('|');
+
+  useEffect(() => {
+    const validPositions = positions.filter(Boolean);
+    if (validPositions.length > 1) {
+      map.fitBounds(validPositions, { padding: [24, 24] });
+    } else if (validPositions.length === 1) {
+      map.setView(validPositions[0], map.getZoom(), { animate: true });
+    }
+  }, [boundsKey, map]);
+
+  return null;
+}
+
+function toLatLng(coords) {
+  if (!coords) return null;
+
+  if (Array.isArray(coords) && coords.length >= 2) {
+    const [lat, lng] = coords;
+    return typeof lat === 'number' && typeof lng === 'number' ? [lat, lng] : null;
+  }
+
+  const lat = coords.lat ?? coords.latitude;
+  const lng = coords.lng ?? coords.longitude;
+  return typeof lat === 'number' && typeof lng === 'number' ? [lat, lng] : null;
+}
+
+function isSameLatLng(a, b) {
+  if (!a || !b) return false;
+  return Math.abs(a[0] - b[0]) < 0.00001 && Math.abs(a[1] - b[1]) < 0.00001;
 }
 
 export default function CirclePage() {
@@ -47,7 +84,17 @@ export default function CirclePage() {
   const [userData, setUserData] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState('');
+  const [walkingRoute, setWalkingRoute] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState('');
   const messagesEndRef = useRef(null);
+  const sourceCoords = toLatLng(circle?.source_coords || circle?.origin_coords || circle?.meeting_point);
+  const destinationCoords = toLatLng(circle?.destination_coords || circle?.dest_coords);
+  const meetingPointCoords = toLatLng(circle?.meeting_point);
+  const mapCenter = meetingPointCoords || sourceCoords || destinationCoords;
+  const routeKey = sourceCoords && destinationCoords
+    ? `${sourceCoords[0]},${sourceCoords[1]}:${destinationCoords[0]},${destinationCoords[1]}`
+    : '';
 
   // Find active circle if no circleId provided
   useEffect(() => {
@@ -158,6 +205,54 @@ export default function CirclePage() {
 
     fetchUser();
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!routeKey || !sourceCoords || !destinationCoords) {
+      setWalkingRoute([]);
+      setRouteError('');
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchWalkingRoute = async () => {
+      setRouteLoading(true);
+      setRouteError('');
+
+      try {
+        const [sourceLat, sourceLng] = sourceCoords;
+        const [destLat, destLng] = destinationCoords;
+        const url = `https://router.project-osrm.org/route/v1/foot/${sourceLng},${sourceLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+        const response = await fetch(url, { signal: controller.signal });
+
+        if (!response.ok) {
+          throw new Error(`OSRM route failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const coordinates = data?.routes?.[0]?.geometry?.coordinates;
+
+        if (!Array.isArray(coordinates) || coordinates.length === 0) {
+          throw new Error('OSRM route response did not include coordinates');
+        }
+
+        setWalkingRoute(coordinates.map(([lng, lat]) => [lat, lng]));
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+
+        console.error('Walking route fetch failed:', error);
+        setWalkingRoute([]);
+        setRouteError('Walking route unavailable. Showing map markers only.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setRouteLoading(false);
+        }
+      }
+    };
+
+    fetchWalkingRoute();
+
+    return () => controller.abort();
+  }, [routeKey]);
 
   // Get user location
   useEffect(() => {
@@ -363,6 +458,23 @@ export default function CirclePage() {
     );
   }
 
+  const routeParts = (circle.route_summary || '')
+    .split(/\s*(?:->|→|â†’)\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const rawSourceLabel = circle.source || circle.origin || circle.origin_landmark || routeParts[0];
+  const sourceLabel = rawSourceLabel || 'Source';
+  const destinationLabel =
+    circle.destination ||
+    circle.destination_landmark ||
+    routeParts[1] ||
+    'Destination';
+  const meetingPointLabel =
+    circle.meetingPoint ||
+    rawSourceLabel ||
+    circle.meeting_point?.name ||
+    'Meeting Point';
+
   return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col text-[#eae0c8] pb-20">
       <Header />
@@ -373,7 +485,15 @@ export default function CirclePage() {
           <h1 className="text-3xl font-bold mb-1">Your SafeCircle</h1>
           <p className="text-[#eae0c8]/60 flex items-center gap-2">
             <MapPin className="w-4 h-4" />
-            {circle.meeting_point?.name} → {circle.route_summary?.split('→')[1] || 'Destination'}
+            Source: <span className="text-[#eae0c8]">{sourceLabel}</span>
+          </p>
+          <p className="text-[#eae0c8]/60 mt-2 flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Destination: <span className="text-[#eae0c8]">{destinationLabel}</span>
+          </p>
+          <p className="text-[#eae0c8]/60 mt-2 flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Meeting Point: <span className="text-[#eae0c8]">{meetingPointLabel}</span>
           </p>
           <p className="text-[#eae0c8]/60 mt-3 flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -387,20 +507,36 @@ export default function CirclePage() {
             <MapPin className="w-5 h-5 text-blue-400" />
             Meeting Point
           </h2>
-          <p className="text-[#eae0c8] font-medium">{circle.meeting_point?.name}</p>
+          <p className="text-[#eae0c8] font-medium">{meetingPointLabel}</p>
           <p className="text-[#eae0c8]/60 text-sm mt-2">
             Departure: {circle.estimated_departure ? new Date(circle.estimated_departure).toLocaleTimeString() : 'TBD'}
           </p>
         </div>
 
         {/* Live Map */}
-        {circle.meeting_point && (
-          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
-            <MapContainer center={[circle.meeting_point.lat, circle.meeting_point.lng]} zoom={15} className="h-full w-full rounded-lg">
+        {mapCenter && (
+          <div className="relative bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
+            <MapContainer center={mapCenter} zoom={15} className="h-full w-full rounded-lg">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[circle.meeting_point.lat, circle.meeting_point.lng]} />
-              <AutoCenterMap position={userLocation} />
+              {walkingRoute.length > 0 && (
+                <Polyline
+                  positions={walkingRoute}
+                  pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.9 }}
+                />
+              )}
+              {sourceCoords && <Marker position={sourceCoords} />}
+              {destinationCoords && <Marker position={destinationCoords} />}
+              {meetingPointCoords && !isSameLatLng(meetingPointCoords, sourceCoords) && !isSameLatLng(meetingPointCoords, destinationCoords) && (
+                <Marker position={meetingPointCoords} />
+              )}
+              {userLocation && <AutoCenterMap position={userLocation} />}
+              <FitMapBounds positions={walkingRoute.length > 0 ? walkingRoute : [sourceCoords, destinationCoords, meetingPointCoords]} />
             </MapContainer>
+            {(routeLoading || routeError) && (
+              <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[500] rounded-xl border border-white/5 bg-[#0B132B]/80 px-3 py-2 text-xs text-[#eae0c8]/70 backdrop-blur-md">
+                {routeLoading ? 'Loading walking route...' : routeError}
+              </div>
+            )}
           </div>
         )}
 

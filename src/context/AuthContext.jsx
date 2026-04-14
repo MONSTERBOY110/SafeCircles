@@ -18,20 +18,37 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Set user immediately and mark loading as false - DON'T WAIT FOR FIRESTORE
-        setUser(firebaseUser);
-        setLoading(false);
-        
-        // Fetch Firestore data in BACKGROUND without blocking UI
-        fetchUserDataAsync(firebaseUser.uid);
-      } else {
-        setUser(null);
-        setUserData(null);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (firebaseUser) => {
+        if (firebaseUser) {
+          console.log('[Auth] Firebase Authentication session active:', {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+          });
+
+          // Set user immediately and mark loading as false - DON'T WAIT FOR FIRESTORE
+          setUser(firebaseUser);
+          setLoading(false);
+
+          // Fetch Firestore data in BACKGROUND without blocking UI
+          fetchUserDataAsync(firebaseUser.uid);
+        } else {
+          console.log('[Auth] No Firebase Authentication session.');
+          setUser(null);
+          setUserData(null);
+          setLoading(false);
+        }
+      },
+      (err) => {
+        console.error('[Auth] Firebase Authentication state listener failed:', {
+          code: err.code,
+          message: err.message,
+        });
+        setError(err.message);
         setLoading(false);
       }
-    });
+    );
 
     return unsubscribe;
   }, []);
@@ -41,11 +58,18 @@ export function AuthProvider({ children }) {
     try {
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
+        console.log('[Auth] Firestore profile document loaded:', { uid });
         setUserData(userDoc.data());
+      } else {
+        console.warn('[Auth] Firestore profile document not found. Login is still valid because Firebase Authentication succeeded:', { uid });
       }
     } catch (err) {
       // Silently warn — common in dev when ad blocker blocks firestore.googleapis.com
-      console.warn('Could not fetch user data (Firestore may be offline):', err.code || err.message);
+      console.warn('[Auth] Could not fetch Firestore profile data. This does not block Firebase Authentication login:', {
+        uid,
+        code: err.code,
+        message: err.message,
+      });
       // Do NOT set error state — this is non-critical background fetch
     }
   };
@@ -78,6 +102,11 @@ export function AuthProvider({ children }) {
 
       return result.user;
     } catch (err) {
+      console.error('[Auth] Firebase Authentication signup failed:', {
+        email,
+        code: err.code,
+        message: err.message,
+      });
       setError(err.message);
       throw err;
     }
@@ -86,10 +115,16 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       setError(null);
+      console.log('[Auth] Signing in with Firebase Authentication:', { email });
       const result = await signInWithEmailAndPassword(auth, email, password);
       // onAuthStateChanged will handle setting user and loading state
       return result.user;
     } catch (err) {
+      console.error('[Auth] Firebase Authentication login failed:', {
+        email,
+        code: err.code,
+        message: err.message,
+      });
       setError(err.message);
       throw err;
     }
@@ -100,6 +135,10 @@ export function AuthProvider({ children }) {
       setError(null);
       await signOut(auth);
     } catch (err) {
+      console.error('[Auth] Firebase Authentication logout failed:', {
+        code: err.code,
+        message: err.message,
+      });
       setError(err.message);
       throw err;
     }

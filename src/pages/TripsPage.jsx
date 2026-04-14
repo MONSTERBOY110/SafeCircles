@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { deleteTrip, getCircleMembers } from '../services/matching';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +18,8 @@ export default function TripsPage() {
   const [circles, setCircles] = useState({});
   const [showFallback, setShowFallback] = useState(false);
   const [retryingTripId, setRetryingTripId] = useState(null);
+  const [confirmingDeleteTripId, setConfirmingDeleteTripId] = useState(null);
+  const [deletingTripId, setDeletingTripId] = useState(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -133,6 +135,26 @@ export default function TripsPage() {
     }
   };
 
+  const handleDeleteTrip = async (trip) => {
+    if (!trip?.id) return;
+    if (trip.userId !== user?.uid) return;
+    if (trip.status !== 'pending') return;
+
+    setDeletingTripId(trip.id);
+
+    try {
+      await deleteDoc(doc(db, 'trips', trip.id));
+      setTrips((prev) => prev.filter((item) => item.id !== trip.id));
+      setConfirmingDeleteTripId(null);
+      toast.success('Trip deleted successfully');
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      toast.error('Failed to delete trip');
+    } finally {
+      setDeletingTripId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col font-sans text-[#eae0c8] relative">
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
@@ -213,6 +235,52 @@ export default function TripsPage() {
                               </div>
                             </div>
                           </div>
+
+                          {trip.userId === user?.uid && trip.status === 'pending' && (
+                            <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
+                              {confirmingDeleteTripId === trip.id ? (
+                                <div className="space-y-3">
+                                  <p className="text-sm font-medium text-red-200">
+                                    Are you sure you want to delete this trip?
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTrip(trip)}
+                                      disabled={deletingTripId === trip.id}
+                                      className="inline-flex items-center justify-center rounded-xl bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-500/30 disabled:opacity-50"
+                                    >
+                                      {deletingTripId === trip.id ? (
+                                        <>
+                                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                          Deleting...
+                                        </>
+                                      ) : (
+                                        'Confirm Delete'
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmingDeleteTripId(null)}
+                                      disabled={deletingTripId === trip.id}
+                                      className="inline-flex items-center justify-center rounded-xl border border-white/5 bg-[#111A3A]/70 px-4 py-2 text-sm font-semibold text-[#EAE0C8]/70 transition hover:bg-[#111A3A] disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingDeleteTripId(trip.id)}
+                                  disabled={deletingTripId === trip.id}
+                                  className="inline-flex items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                                >
+                                  {deletingTripId === trip.id ? 'Deleting...' : 'Delete Trip'}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

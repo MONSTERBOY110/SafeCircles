@@ -189,9 +189,9 @@ export async function findAndMatchTrips(newTripData, newTripId) {
 
     const routeOrigin = newTripData.origin_landmark || newTripData.origin || 'Unknown';
     const routeDestination = newTripData.destination_landmark || newTripData.destination || 'Unknown';
-    const meetingPointName = newTripData.destination || newTripData.destination_landmark || 'Meeting Point';
-    const meetingPointLat = newTripData.dest_coords?.lat ?? newTripData.origin_coords?.lat;
-    const meetingPointLng = newTripData.dest_coords?.lng ?? newTripData.origin_coords?.lng;
+    const meetingPointName = newTripData.origin || newTripData.origin_landmark || 'Meeting Point';
+    const meetingPointLat = newTripData.origin_coords?.lat;
+    const meetingPointLng = newTripData.origin_coords?.lng;
     const estimatedDeparture =
       newTripData.departure_window?.start ||
       newTripData.timeWindowStart ||
@@ -210,6 +210,7 @@ export async function findAndMatchTrips(newTripData, newTripId) {
 
     const circleData = {
       member_ids: allMemberIds,
+      meetingPoint: meetingPointName,
       meeting_point: {
         name: meetingPointName,
         lat: meetingPointLat,
