@@ -14,6 +14,7 @@ export default function FaceDetection({ onFaceDetected }) {
   const [confidence, setConfidence] = useState(0);
   const [holdProgress, setHoldProgress] = useState(0);
   const [lightingWarning, setLightingWarning] = useState('');
+  const [errorDetail, setErrorDetail] = useState('');
 
   // Start camera
   useEffect(() => {
@@ -55,7 +56,11 @@ export default function FaceDetection({ onFaceDetected }) {
         const { FaceMesh } = await import('@mediapipe/face_mesh');
 
         faceMeshModel = new FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+          // Self-hosted from public/mediapipe/face_mesh — the jsdelivr-hosted
+          // SIMD WASM bundle has a known issue where the .data file load fails
+          // inside Emscripten with "Cannot read properties of undefined
+          // (reading 'buffer')". Same-origin assets sidestep that.
+          locateFile: (file) => `/mediapipe/face_mesh/${file}`,
         });
         faceMeshModel.setOptions({
           maxNumFaces: 1,
@@ -151,7 +156,11 @@ export default function FaceDetection({ onFaceDetected }) {
       } catch (err) {
         console.error('MediaPipe init error:', err);
         setStatus('error');
-        setStatusMessage('Failed to load face detection. Check your internet connection.');
+        setStatusMessage('Failed to load face detection.');
+        // Surface the actual reason so the user (or we) can see what failed.
+        // Common causes: ad blocker blocking jsdelivr, offline, CDN 404.
+        const detail = err?.message || String(err);
+        setErrorDetail(detail);
       }
     };
 
@@ -161,6 +170,12 @@ export default function FaceDetection({ onFaceDetected }) {
       faceMeshModel?.close?.();
     };
   }, [status === 'loading']);
+
+  const handleRetryMediaPipe = useCallback(() => {
+    setErrorDetail('');
+    setStatusMessage('Initializing MediaPipe face detection...');
+    setStatus('loading'); // re-triggers the MediaPipe init effect
+  }, []);
 
   const statusColors = {
     init: 'border border-white/5 bg-[#111A3A] text-[#EAE0C8]/70',
@@ -244,6 +259,29 @@ export default function FaceDetection({ onFaceDetected }) {
         <p className="mt-2 text-xs text-[#EAE0C8]/50">
           Confidence: {Math.round(confidence * 100)}%
         </p>
+      )}
+
+      {/* Error detail + retry */}
+      {status === 'error' && (
+        <div className="mt-4 mx-auto max-w-md rounded-2xl border-2 border-red-400 bg-red-500/10 p-4 text-left">
+          {errorDetail && (
+            <p className="mb-3 text-xs text-[#EAE0C8]/70 font-mono break-words">
+              {errorDetail}
+            </p>
+          )}
+          <p className="mb-3 text-sm text-[#EAE0C8]/80">
+            The MediaPipe face-detection model couldn't load. Common causes: ad blocker
+            blocking <span className="font-mono">cdn.jsdelivr.net</span>, no internet, or a
+            transient CDN error.
+          </p>
+          <button
+            type="button"
+            onClick={handleRetryMediaPipe}
+            className="w-full rounded-xl bg-blue-600 py-2 text-sm font-bold text-[#EAE0C8] transition hover:bg-blue-500"
+          >
+            Retry
+          </button>
+        </div>
       )}
 
       {/* Lighting warning */}

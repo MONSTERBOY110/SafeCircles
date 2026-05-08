@@ -1,159 +1,169 @@
 /**
- * STRICT Voice Verification Logic
- * 
- * Purpose: Reduce false positives by enforcing strict requirements
- * - Prevents male voices from passing
- * - Rejects invalid data (NaN, out of range)
- * - Requires all checks to pass
+ * Voice Verification Decision Model
+ *
+ * 100-point confidence score with hard gates and soft signals.
+ *
+ * Hard gates (any failure -> reject regardless of score):
+ *   - Microphone error
+ *   - Recording duration in [MIN_RECORDING_SECONDS, MAX_RECORDING_SECONDS]
+ *   - Speech detected (RMS >= MIN_RMS_RELAXED AND speechRatio >= MIN_SPEECH_RATIO)
+ *   - Prompt match >= PROMPT_MATCH_THRESHOLD when a transcript is available
+ *   - Voice pitch in [BORDERLINE_FEMALE_PITCH_MIN, BORDERLINE_FEMALE_PITCH_MAX]
+ *     (SafeCircles is a women-only safety service; male-range voices are rejected)
+ *
+ * Soft signals (contribute points but never auto-fail):
+ *   - Pitch in strong female range -> 15 pts; borderline -> 7 pts (still inside the gate)
+ *   - Lip-sync score > 0.35 -> 10 pts; > 0.15 -> 3 pts; NaN/null/undefined -> 0 pts (no penalty)
+ *
+ * Pass = all hard gates AND score >= 70.
  */
 
-export function performStrictVoiceVerification({
-  frequency,           // Pitch in Hz
-  rms,                 // Energy level
-  speechRatio,         // Fraction of frames with speech > 0.02
-  lipSyncScore,        // Lip sync correlation score (can be null or NaN)
-  duration,            // Recording duration in seconds
-  similarity,          // Text match similarity (0-1)
-  hasVoice,            // Boolean: voice activity detected
-  textMatchRequired,   // Boolean: whether speech recognition worked
+import { VERIFICATION } from './constants';
+
+export function evaluateVoiceConfidence({
+  pitchHz,           // number | null | undefined
+  pitchConfidence,   // 0..1 — fraction of audio frames where pitch was confidently detected
+  rms,               // number
+  duration,          // seconds
+  speechRatio,       // 0..1 — fraction of frames with voice activity
+  lipSyncScore,      // number | NaN | null | undefined
+  promptMatch,       // 0..1 — null/undefined when no transcript
+  hasTranscript,     // boolean — whether SpeechRecognition produced any text
+  micError,          // boolean
 }) {
-  // Initialize detailed reasons
   const reasons = [];
-  let allChecksPassed = true;
+  let score = 0;
 
-  // ─────────────────────────────────────────────────────────────────
-  // 1. PITCH VALIDATION — Strict female-only range
-  // ─────────────────────────────────────────────────────────────────
-  const PITCH_MIN = 170;  // Hz - Filter out male voices (male typical: 85-180)
-  const PITCH_MAX = 255;  // Hz - Female typical: 165-255
-  
-  if (frequency === null || frequency === undefined || isNaN(frequency)) {
-    allChecksPassed = false;
-    reasons.push('No vocal pitch detected');
-  } else if (frequency < PITCH_MIN || frequency > PITCH_MAX) {
-    allChecksPassed = false;
-    reasons.push(`Pitch ${frequency.toFixed(0)}Hz out of range (170–255Hz). This may be a male voice or not natural speech.`);
+  // Hard gate: microphone error trumps everything else.
+  if (micError) {
+    return {
+      passed: false,
+      score: 0,
+      hardFail: true,
+      failureReasons: ['Microphone error. Please grant permission and try again.'],
+      checks: {},
+    };
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // 2. VOICE ACTIVITY — Must be detected
-  // ─────────────────────────────────────────────────────────────────
-  if (!hasVoice) {
-    allChecksPassed = false;
-    reasons.push('No voice activity detected');
+  // Hard gate: duration window.
+  const durationOk =
+    typeof duration === 'number' &&
+    Number.isFinite(duration) &&
+    duration >= VERIFICATION.MIN_RECORDING_SECONDS &&
+    duration <= VERIFICATION.MAX_RECORDING_SECONDS;
+  if (!durationOk) {
+    if (typeof duration === 'number' && duration < VERIFICATION.MIN_RECORDING_SECONDS) {
+      reasons.push('Recording was too short — speak for at least 2 seconds.');
+    } else {
+      reasons.push('Recording was too long.');
+    }
+  } else {
+    score += 15;
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // 3. ENERGY LEVEL — RMS must be above threshold
-  // ─────────────────────────────────────────────────────────────────
-  const RMS_MIN = 0.02;  // Minimum energy threshold
-  
-  if (rms === null || rms === undefined || isNaN(rms)) {
-    allChecksPassed = false;
-    reasons.push('RMS energy calculation failed');
-  } else if (rms < RMS_MIN) {
-    allChecksPassed = false;
-    reasons.push(`Audio volume too low (RMS: ${rms.toFixed(4)}). Please speak louder.`);
+  // Hard gate: speech detected (RMS + ratio combined).
+  const rmsOk = typeof rms === 'number' && Number.isFinite(rms) && rms >= VERIFICATION.MIN_RMS_RELAXED;
+  const speechRatioOk =
+    typeof speechRatio === 'number' &&
+    Number.isFinite(speechRatio) &&
+    speechRatio >= VERIFICATION.MIN_SPEECH_RATIO;
+  const speechDetected = rmsOk && speechRatioOk;
+  if (!speechDetected) {
+    if (!rmsOk) {
+      reasons.push('Voice was too low — try a quieter location.');
+    } else {
+      reasons.push('Speech was not detected. Please speak clearly into the mic.');
+    }
+  } else {
+    score += 20; // speech detected
+    score += 15; // RMS valid (folded — both required for speechDetected)
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // 4. DURATION — Must be between 2–8 seconds
-  // ─────────────────────────────────────────────────────────────────
-  const DURATION_MIN = 2;  // seconds
-  const DURATION_MAX = 8;  // seconds
-  
-  if (duration === null || duration === undefined || isNaN(duration)) {
-    allChecksPassed = false;
-    reasons.push('Duration calculation failed');
-  } else if (duration < DURATION_MIN || duration > DURATION_MAX) {
-    allChecksPassed = false;
-    reasons.push(`Recording duration ${duration.toFixed(1)}s invalid. Please record 2–8 seconds.`);
+  // Hard gate (conditional): prompt text match. Only enforced when a transcript exists.
+  let promptMatchOk = true;
+  if (hasTranscript) {
+    const matchValue = typeof promptMatch === 'number' && Number.isFinite(promptMatch) ? promptMatch : 0;
+    if (matchValue >= VERIFICATION.PROMPT_MATCH_THRESHOLD) {
+      score += 25;
+    } else {
+      promptMatchOk = false;
+      reasons.push('Please read the exact sentence shown.');
+    }
+  } else {
+    // SpeechRecognition unavailable / no transcript — partial credit so SR-blind
+    // users can still pass on audio + duration + lip-sync alone.
+    score += 15;
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // 5. SPEECH FRAMES — At least 40% of frames must have speech
-  // ─────────────────────────────────────────────────────────────────
-  const SPEECH_RATIO_MIN = 0.4;  // At least 40% of frames should have speech
-  
-  if (speechRatio === null || speechRatio === undefined || isNaN(speechRatio)) {
-    allChecksPassed = false;
-    reasons.push('Speech frame analysis failed');
-  } else if (speechRatio < SPEECH_RATIO_MIN) {
-    allChecksPassed = false;
-    reasons.push(`Not enough active speech detected (${(speechRatio * 100).toFixed(0)}%). Please speak continuously.`);
+  // Hard gate (1/2): pitch confidence floor. If we couldn't reliably detect a
+  // pitch in enough frames (background noise, mumble, mic problem), we don't
+  // trust ANY pitch verdict — reject with a clear reason rather than
+  // misclassifying. The two pitch reasons are mutually exclusive on purpose.
+  const pitchConfidenceOk =
+    typeof pitchConfidence === 'number' &&
+    Number.isFinite(pitchConfidence) &&
+    pitchConfidence >= VERIFICATION.MIN_PITCH_CONFIDENCE;
+  if (!pitchConfidenceOk) {
+    reasons.push('Could not detect voice clearly — try a quieter location.');
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // 6. LIP SYNC — Strict validation with NaN protection
-  // ─────────────────────────────────────────────────────────────────
-  const LIP_SYNC_THRESHOLD = 0.5;  // Minimum correlation score
-  let lipSyncOk = true;
-  
-  if (lipSyncScore === null || lipSyncScore === undefined) {
-    // Camera not available — still allow verification if other checks pass
-    // (lip sync is secondary to audio checks)
-  } else if (isNaN(lipSyncScore)) {
-    // NaN means calculation failed — FAIL immediately
-    allChecksPassed = false;
-    lipSyncOk = false;
-    reasons.push('Lip sync calculation failed (NaN detected). Please try again with camera and good lighting.');
-  } else if (lipSyncScore < LIP_SYNC_THRESHOLD) {
-    allChecksPassed = false;
-    lipSyncOk = false;
-    reasons.push(`Lip movement insufficient (${lipSyncScore.toFixed(2)}). Speak clearly facing the camera.`);
+  // Hard gate (2/2): pitch must be in the female range. SafeCircles is a
+  // women-only safety service. The BORDERLINE range is the gate so women with
+  // naturally low or high voices aren't rejected; pitch *points* are tiered
+  // (strong female -> 15, borderline-but-inside-gate -> 7).
+  const pitchValid =
+    typeof pitchHz === 'number' &&
+    Number.isFinite(pitchHz) &&
+    pitchHz >= VERIFICATION.BORDERLINE_FEMALE_PITCH_MIN &&
+    pitchHz <= VERIFICATION.BORDERLINE_FEMALE_PITCH_MAX;
+  const pitchOk = pitchConfidenceOk && pitchValid;
+  if (pitchConfidenceOk && !pitchValid) {
+    reasons.push('Voice pitch is outside the expected range for this women-only verification.');
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // 7. TEXT MATCH — If speech recognition worked, must match
-  // ─────────────────────────────────────────────────────────────────
-  const SIMILARITY_MIN = 0.8;  // 80% match required
-  
-  if (textMatchRequired) {
-    if (similarity === null || similarity === undefined || isNaN(similarity)) {
-      allChecksPassed = false;
-      reasons.push('Text similarity calculation failed');
-    } else if (similarity < SIMILARITY_MIN) {
-      allChecksPassed = false;
-      reasons.push(`Text match too low (${(similarity * 100).toFixed(0)}%). Please read the exact sentence shown.`);
+  if (pitchOk) {
+    if (pitchHz >= VERIFICATION.MIN_FEMALE_PITCH_HZ && pitchHz <= VERIFICATION.MAX_FEMALE_PITCH_HZ) {
+      score += 15;
+    } else {
+      score += 7;
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FINAL DECISION
-  // ─────────────────────────────────────────────────────────────────
+  // Soft signal: lip-sync. NaN/null/undefined -> 0 pts, never blocks.
+  const lipOk = typeof lipSyncScore === 'number' && Number.isFinite(lipSyncScore);
+  if (lipOk) {
+    if (lipSyncScore > 0.35) {
+      score += 10;
+    } else if (lipSyncScore > 0.15) {
+      score += 3;
+    } else {
+      console.warn('[VoiceVerification] Lip movement low — please keep your face visible while speaking.');
+    }
+  } else if (lipSyncScore !== null && lipSyncScore !== undefined) {
+    console.warn('[VoiceVerification] lipSyncScore invalid, scoring as 0');
+  }
+
+  // Decision
+  const hardGatesPassed = durationOk && speechDetected && promptMatchOk && pitchOk;
+  const passed = hardGatesPassed && score >= 70;
+
   return {
-    passed: allChecksPassed &&
-            frequency >= PITCH_MIN &&
-            frequency <= PITCH_MAX &&
-            hasVoice &&
-            rms >= RMS_MIN &&
-            duration >= DURATION_MIN &&
-            duration <= DURATION_MAX &&
-            speechRatio >= SPEECH_RATIO_MIN &&
-            lipSyncOk &&
-            (textMatchRequired ? similarity >= SIMILARITY_MIN : true),
-    
-    details: {
-      frequency: frequency !== null && !isNaN(frequency) ? frequency.toFixed(1) : 'N/A',
-      rms: rms !== null && !isNaN(rms) ? rms.toFixed(4) : 'N/A',
-      speechRatio: speechRatio !== null && !isNaN(speechRatio) ? (speechRatio * 100).toFixed(1) : 'N/A',
-      duration: duration !== null && !isNaN(duration) ? duration.toFixed(1) : 'N/A',
-      lipSyncScore: lipSyncScore !== null && !isNaN(lipSyncScore) ? lipSyncScore.toFixed(2) : 'N/A',
-      similarity: textMatchRequired && similarity !== null && !isNaN(similarity) ? (similarity * 100).toFixed(0) : 'N/A',
-    },
-
-    // User-friendly failure reasons
-    failureReasons: reasons.length > 0 ? reasons : ['Verification failed for unknown reason'],
-
-    // Machine-readable checks
+    passed,
+    score,
+    hardFail: !hardGatesPassed,
+    failureReasons: reasons,
     checks: {
-      pitchValid: frequency >= PITCH_MIN && frequency <= PITCH_MAX,
-      voiceDetected: hasVoice,
-      energyOk: rms >= RMS_MIN,
-      durationValid: duration >= DURATION_MIN && duration <= DURATION_MAX,
-      speechFramesOk: speechRatio >= SPEECH_RATIO_MIN,
-      lipSyncOk,
-      textMatchOk: !textMatchRequired || similarity >= SIMILARITY_MIN,
+      durationOk,
+      speechDetected,
+      promptMatchOk,
+      pitchOk,
+      pitchConfidenceOk,
+      pitchHz: typeof pitchHz === 'number' && Number.isFinite(pitchHz) ? pitchHz : null,
+      pitchConfidence: typeof pitchConfidence === 'number' && Number.isFinite(pitchConfidence) ? pitchConfidence : null,
+      lipSyncScore: lipOk ? lipSyncScore : null,
     },
   };
 }
+
+// Backwards-compat alias for any caller still using the old name.
+// New callers should use evaluateVoiceConfidence directly.
+export const performStrictVoiceVerification = evaluateVoiceConfidence;

@@ -92,7 +92,12 @@ export function AuthProvider({ children }) {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
 
-      // Create user document in Firestore
+      // Create user document in Firestore.
+      // Note: gender is intentionally NOT preset here — it's set by the
+      // KYC step (`VerificationFlow.handleKycComplete`) once a real provider
+      // returns the verified gender. Hardcoding it would be wrong for any
+      // non-female user and would conflict with the locked-after-first-set
+      // rule in firestore.rules.
       const userDocData = {
         uid: result.user.uid,
         name,
@@ -100,7 +105,6 @@ export function AuthProvider({ children }) {
         verification_status: 'PENDING',
         reputation_score: 0,
         successful_trips: 0,
-        gender: 'female',
         created_at: serverTimestamp(),
         last_active: serverTimestamp(),
       };

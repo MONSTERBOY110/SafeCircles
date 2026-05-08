@@ -68,7 +68,10 @@ export default function VerificationFlow() {
     try {
       await saveVerificationData(completeData);
       if (auth.currentUser) {
-        await updateDoc(doc(db, 'users', auth.currentUser.uid), { isVerified: true });
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+          isVerified: true,
+          verification_status: 'VERIFIED',
+        });
       }
       savedToFirestore = true;
     } catch (err) {
