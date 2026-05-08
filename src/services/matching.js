@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { geohashEncode } from '../utils/geohash';
+import { calculateDistance } from '../utils/haversine';
 
 /**
  * Create a new trip document in Firestore.
@@ -83,8 +84,57 @@ export function listenToUserTrips(userId, callback) {
 }
 
 /**
+ * Calculate approximate path overlap between two routes
+ * Checks if origin and destination are both geographically close
+ */
+function calculatePathOverlap(trip1Coords, trip2Coords) {
+  if (!trip1Coords?.origin || !trip1Coords?.dest || 
+      !trip2Coords?.origin || !trip2Coords?.dest) {
+    return 0;
+  }
+
+  // Calculate distances between origins and destinations
+  const originDistance = calculateDistance(
+    trip1Coords.origin.lat, trip1Coords.origin.lng,
+    trip2Coords.origin.lat, trip2Coords.origin.lng
+  );
+
+  const destDistance = calculateDistance(
+    trip1Coords.dest.lat, trip1Coords.dest.lng,
+    trip2Coords.dest.lat, trip2Coords.dest.lng
+  );
+
+  // Both origin and destination should be within 5km for a good match
+  const originOverlap = originDistance <= 5;
+  const destOverlap = destDistance <= 5;
+
+  // Return overlap score (0-100)
+  // Full match if both are within 5km, partial if only one is close
+  if (originOverlap && destOverlap) {
+    return 100 - (originDistance + destDistance); // Favor closer matches
+  } else if (originOverlap || destOverlap) {
+    return 30; // Partial overlap
+  }
+  return 0; // No overlap
+}
+
+/**
+ * Check if departure times overlap sufficiently
+ */
+function checkDepartureWindowOverlap(window1, window2, toleranceMinutes = 30) {
+  if (!window1?.start || !window2?.start) return true; // Default to true if not provided
+
+  const start1 = window1.start instanceof Date ? window1.start : new Date(window1.start);
+  const start2 = window2.start instanceof Date ? window2.start : new Date(window2.start);
+
+  const timeDiff = Math.abs(start1 - start2) / (1000 * 60); // Convert to minutes
+  return timeDiff <= toleranceMinutes;
+}
+
+/**
  * FRONTEND MATCHING LOGIC
  * Find matching trips and create a SafeCircle without Cloud Functions
+ * Supports multiple users (2-10) with overlapping routes
  */
 export async function findAndMatchTrips(newTripData, newTripId) {
   const currentUserId = newTripData?.userId || auth.currentUser?.uid;
@@ -113,6 +163,13 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     const matches = [];
     const uniqueUserIds = new Set();
     const newOriginPrefix = newTripData.origin_geohash.substring(0, 4);
+    const newDestPrefix = newTripData.dest_geohash.substring(0, 4);
+
+    // Prepare new trip coordinates for path overlap calculation
+    const newTripCoords = {
+      origin: newTripData.origin_coords,
+      dest: newTripData.dest_coords,
+    };
 
     for (const tripDoc of tripsSnapshot.docs) {
       const trip = { id: tripDoc.id, ...tripDoc.data() };
@@ -130,8 +187,22 @@ export async function findAndMatchTrips(newTripData, newTripId) {
         continue;
       }
 
+      // Check origin geohash prefix match (primary filter)
       const tripOriginPrefix = trip.origin_geohash.substring(0, 4);
       if (newOriginPrefix !== tripOriginPrefix) {
+        continue;
+      }
+
+      // Check destination geohash prefix match (secondary filter)
+      const tripDestPrefix = trip.dest_geohash.substring(0, 4);
+      if (newDestPrefix !== tripDestPrefix) {
+        console.log(`Trip ${trip.id} has different destination prefix`);
+        continue;
+      }
+
+      // Check departure window overlap
+      if (!checkDepartureWindowOverlap(newTripData.departure_window, trip.departure_window)) {
+        console.log(`Trip ${trip.id} has non-overlapping departure time`);
         continue;
       }
 
@@ -153,12 +224,20 @@ export async function findAndMatchTrips(newTripData, newTripId) {
         continue;
       }
 
+      // Calculate path overlap score
+      const tripCoords = {
+        origin: trip.origin_coords,
+        dest: trip.dest_coords,
+      };
+      const overlapScore = calculatePathOverlap(newTripCoords, tripCoords);
+
       uniqueUserIds.add(trip.userId);
       matches.push({
         tripId: trip.id,
         userId: trip.userId,
         name: userData.name || 'User',
         reputation: userData.reputation || userData.reputation_score || 0,
+        overlapScore: overlapScore,
       });
     }
 
@@ -176,8 +255,16 @@ export async function findAndMatchTrips(newTripData, newTripId) {
       uniqueMatches.push(m);
     }
 
-    uniqueMatches.sort((a, b) => b.reputation - a.reputation);
-    const finalMembers = uniqueMatches.slice(0, 4);
+    // Sort by reputation first, then by overlap score
+    uniqueMatches.sort((a, b) => {
+      if (b.reputation !== a.reputation) {
+        return b.reputation - a.reputation;
+      }
+      return b.overlapScore - a.overlapScore;
+    });
+
+    // Take up to 10 members (including current user, total circle can be 2-11)
+    const finalMembers = uniqueMatches.slice(0, 10);
 
     if (finalMembers.length < 1) {
       console.log('Not enough users to form circle');

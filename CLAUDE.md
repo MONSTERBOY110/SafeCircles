@@ -42,14 +42,19 @@ The matching engine that pairs travelers into circles runs **client-side**, not 
 
 1. Reads all `trips` with `status == 'pending'` from Firestore.
 2. Filters to trips whose **origin geohash prefix (first 4 chars)** matches the new trip's. Storage precision is 7 chars (~150m), but matching widens to a 4-char prefix (~5km cluster). The full 7-char hash is *not* used as the join key.
-3. For each candidate, fetches the user doc and keeps only verified users (`isVerified === true` OR `verification_status === 'VERIFIED'` — both shapes exist in the wild).
-4. Deduplicates by `userId`, sorts by reputation, takes top 4, creates a `safe_circles` doc, and batches the trip docs to `status: 'matched'` with the new `circle_id`.
+3. **NEW: Also filters by destination geohash prefix (first 4 chars)** to ensure travelers are going to overlapping destinations.
+4. **NEW: Checks departure time window overlap** (within 30-minute tolerance) to ensure travelers can depart together.
+5. **NEW: Calculates path overlap score** using haversine distance between trip origins and destinations. A score of 100 means both origin and destination are within 5km of the new trip; partial overlap (30 points) if only one endpoint matches.
+6. For each candidate, fetches the user doc and keeps only verified users (`isVerified === true` OR `verification_status === 'VERIFIED'` — both shapes exist in the wild).
+7. Deduplicates by `userId`, sorts by **reputation first, then by path overlap score**, takes up to **10 matches** (supporting circles of 2–11 total members), creates a `safe_circles` doc, and batches the trip docs to `status: 'matched'` with the new `circle_id`.
 
 Things to know when touching this path:
-- **The README overstates the filter set.** The current code does *not* filter by `dest_geohash` or by `departure_window` overlap — only origin-prefix + verification. If you add those filters, update the README too.
+- The matching now **does filter by `dest_geohash`, `departure_window`, and path overlap**. These are essential for forming coherent multi-person circles with overlapping routes.
+- Circle size can now be 2–11 members (up to 10 matches + the creator). UX should reflect this flexibility.
 - The frontend creates a `safe_circles` document with `status: 'forming'`, but `trips` are flipped to `status: 'matched'`. UIs/listeners check both — don't change one without the other.
 - Cloud Functions in `backend/matchUsers.js` exist but are **not the source of truth**; the frontend path is what runs in production. Treat the function as a fallback / future server-side path, not a mirror.
 - `listenToTrip` in `matching.js` uses CommonJS `require('firebase/firestore')` inside an ESM module — it will throw if called. Prefer building listeners with the already-imported `onSnapshot`/`doc` rather than reusing this helper.
+- Path overlap scoring uses `calculateDistance()` from `utils/haversine.js`. If you change distance thresholds (currently 5km for origin and destination), test impact on match rates in dense vs sparse regions.
 
 ### Per-user trip completion (the other load-bearing flow)
 
@@ -139,7 +144,7 @@ For production women-only services, voice verification should be ONE signal; ID-
 Collections used by the app (see README "Firestore Collections" for full shapes):
 - `users` — profile + verification + reputation (`reputation_score` *and* `reputation` are both read by matching code; prefer `reputation_score`).
 - `trips` — origin/dest landmarks, `origin_coords`/`dest_coords`, `origin_geohash`/`dest_geohash` (precision 7), `departure_window`, `status` ∈ `pending|matched|active|completed`, `circle_id`, `expires_at` (90 min TTL — see `MATCHING.TRIP_TTL_MINUTES`).
-- `safe_circles` — `member_ids[]`, `meeting_point`, `dest_coords`, `route_summary`, `reachedBy[]` (UIDs of members who have marked themselves reached safely), `status` ∈ `forming|matched|completed`.
+- `safe_circles` — `member_ids[]` (2–11 members), `meeting_point`, `dest_coords`, `route_summary`, `reachedBy[]` (UIDs of members who have marked themselves reached safely), `status` ∈ `forming|matched|completed`.
 - `live_locations` — geohash precision 6 (~600m) for privacy. Updated every ~10s by `services/locationTracking.js`.
 - `alerts`, `safety_pings`, `trip_logs` — emergency events, status pings, completed-trip history.
 

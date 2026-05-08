@@ -203,7 +203,7 @@ Verified users can create a trip from the Dashboard by entering source and desti
 * Destination coordinates
 * Origin geohash
 * Destination geohash
-* Time window
+* Departure time window
 * Status
 * User ID
 
@@ -304,7 +304,7 @@ Reverse: https://nominatim.openstreetmap.org/reverse?format=json&lat=<lat>&lon=<
 
 ### Description
 
-When a user creates a trip, SafeCircles attempts to match them with another verified user travelling from a nearby origin.
+When a user creates a trip, SafeCircles attempts to match them with other verified users travelling on similar routes with overlapping paths.
 
 ### Matching Strategy
 
@@ -315,51 +315,63 @@ Current implementation uses frontend-based matching due to Firebase Cloud Functi
 * Other trip must be pending.
 * Other trip must belong to a different user.
 * Other user must be verified.
-* Origin geohash prefix should match.
+* Origin geohash prefix should match (first 4 chars, ~5km cluster).
+* **NEW: Destination geohash prefix should match (first 4 chars)** to ensure overlapping destinations.
+* **NEW: Departure time windows must overlap** (within 30-minute tolerance).
+* **NEW: Path overlap score** — both origin AND destination within 5km = full match (100 points); only one endpoint close = partial match (30 points).
 * Duplicate users should be removed.
-* Matching should create a SafeCircle.
+* Matching should create a SafeCircle with multiple members.
 
 ### Matching Logic
 
 1. User creates trip.
 2. Fetch pending trips.
-3. Filter invalid trips.
-4. Exclude own trip.
-5. Match nearby origin geohash.
-6. Fetch matched users from Firestore.
-7. Keep only verified users.
-8. Remove duplicate users.
-9. Create `safe_circles` document.
-10. Update current and matched trips to `matched`.
+3. Filter by origin geohash prefix (first 4 chars).
+4. Filter by destination geohash prefix (first 4 chars).
+5. Filter by departure time window overlap (±30 minutes).
+6. Calculate path overlap score for each candidate.
+7. Exclude own trip.
+8. Fetch matched users from Firestore.
+9. Keep only verified users.
+10. Remove duplicate users.
+11. Sort by reputation, then by path overlap score.
+12. Select up to 10 matches (creating circles of 2–11 members).
+13. Create `safe_circles` document with all members.
+14. Update all trip docs to `matched` status.
 
 ### SafeCircle Firestore Structure
 
 ```js
 safe_circles/{circleId} = {
-  member_ids: [uid1, uid2],
+  member_ids: [uid1, uid2, uid3, ...],
   members: [
     {
       userId: string,
       name: string,
       reputation: number
-    }
+    },
+    ...
   ],
   meeting_point: string,
   source: string,
   destination: string,
+  route_summary: string,
   status: "forming" | "active" | "completed",
   created_at: timestamp,
-  reachedBy: []
+  reachedBy: [uid1, uid3, ...],
+  circle_size: number
 }
 ```
 
 ### Acceptance Criteria
 
-* Two verified users creating similar trips get matched.
-* SafeCircle document is created.
-* Both trips update to `matched`.
+* Two or more verified users creating similar trips with overlapping routes get matched.
+* SafeCircle document is created with all matching members (2–11 people).
+* All matched trips update to `matched` status.
 * Duplicate members are not shown.
 * Trips page updates in real time.
+* Circle members can be from 2 to 11 people (1 creator + up to 10 matches).
+* Destination overlap is prioritized for matching.
 
 ---
 
@@ -857,11 +869,12 @@ trip_logs/{logId}
 3. Create trip.
 4. Login with verified User3.
 5. Create matching trip.
-6. Show matched trip in Trips page.
-7. Open Circle Page.
-8. Show members, map, chat.
-9. Send chat messages between users.
-10. Mark Reached Safely.
+6. (Optional) Login with verified User4+ to create more matching trips.
+7. Show matched trip in Trips page with multiple members (2-11 people).
+8. Open Circle Page.
+9. Show members, map, chat with multiple participants.
+10. Send chat messages between multiple users.
+11. Mark Reached Safely for one user, verify other users can still be in the circle.
 
 ---
 
@@ -955,12 +968,14 @@ Over 3 crore women in India face regular safety challenges during travel.
 
 ## 14. Known Limitations
 
+* Matching now requires destination and departure time overlap, so not all pending trips will find matches.
 * Current matching is frontend-based due to Cloud Functions Blaze plan requirement.
 * Verification accuracy needs improvement with real female voice/video testing.
 * Emergency features are partially implemented.
 * Full offline sync is planned but not fully production-ready.
 * Route accuracy depends on OpenStreetMap / OSRM availability.
 * Demo currently may use controlled test accounts.
+* Path overlap threshold (5km) is tuned for urban settings; sparse regions may see fewer matches.
 
 ---
 
