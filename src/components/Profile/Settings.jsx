@@ -20,36 +20,41 @@ export default function Settings() {
   };
 
   return (
-    <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl shadow-xl p-6 max-w-lg mx-auto">
-      <h3 className="text-xl font-bold text-[#eae0c8] mb-5 uppercase tracking-widest text-sm">Settings</h3>
+    <div className="profile-details-card">
+      <div className="px-4 pt-4">
+        <h3 className="section-title">Settings</h3>
+      </div>
 
-      <div className="space-y-1">
-        <div className="flex items-center justify-between py-3.5 border-b border-white/5">
-          <span className="text-[#eae0c8]/80 font-medium flex items-center gap-2.5">
-            <Bell className="w-4 h-4 text-[#eae0c8]/40" /> Notifications
+      <div>
+        <div className="profile-detail-row">
+          <span className="detail-icon"><Bell size={18} /></span>
+          <span className="detail-value flex-1">
+            Notifications
           </span>
-          <span className="text-green-400 text-xs font-bold uppercase tracking-wider bg-green-500/10 px-2 py-1 rounded-md border border-green-500/20">Enabled</span>
+          <span className="chip chip-completed">Enabled</span>
         </div>
-        <div className="flex items-center justify-between py-3.5 border-b border-white/5">
-          <span className="text-[#eae0c8]/80 font-medium flex items-center gap-2.5">
-            <MapPin className="w-4 h-4 text-[#eae0c8]/40" /> Location Tracking
+        <div className="profile-detail-row">
+          <span className="detail-icon"><MapPin size={18} /></span>
+          <span className="detail-value flex-1">
+            Location Tracking
           </span>
-          <span className="text-blue-400 text-xs font-bold uppercase tracking-wider bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">Active during trips</span>
+          <span className="chip chip-matched">Trip only</span>
         </div>
-        <div className="flex items-center justify-between py-3.5 border-b border-white/5">
-          <span className="text-[#eae0c8]/80 font-medium flex items-center gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-[#eae0c8]/40" /> Privacy Mode
+        <div className="profile-detail-row">
+          <span className="detail-icon"><ShieldCheck size={18} /></span>
+          <span className="detail-value flex-1">
+            Privacy Mode
           </span>
-          <span className="text-blue-400 text-xs font-bold uppercase tracking-wider bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">Geohash-rounded</span>
+          <span className="chip chip-matched">Geohash</span>
         </div>
       </div>
 
       <button
         onClick={handleLogout}
         disabled={loading}
-        className="w-full mt-6 flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-bold py-3.5 rounded-xl transition-all uppercase tracking-widest text-sm disabled:opacity-50"
+        className="btn-danger m-4 w-[calc(100%-32px)]"
       >
-        <LogOut className="w-4 h-4" />
+        <LogOut size={16} />
         {loading ? 'Logging out...' : 'Log Out'}
       </button>
     </div>

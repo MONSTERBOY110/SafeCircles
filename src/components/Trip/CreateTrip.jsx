@@ -38,19 +38,17 @@ export default function CreateTrip() {
   const displayedTrips = activeTab === 'active' ? activeTrips : pastTrips;
 
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-6">
-      <h2 className="mb-6 text-3xl font-extrabold tracking-tight text-[#EAE0C8]">Your Trips</h2>
-
-      <div className="mb-6 flex rounded-2xl border border-white/5 bg-[#111A3A]/70 p-1 shadow-lg backdrop-blur-md">
+    <div>
+      <div className="mb-6 flex rounded-2xl border border-[var(--border-light)] bg-white p-1 shadow-sm">
         <button
           onClick={() => setActiveTab('active')}
-          className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-blue-600/90 text-[#EAE0C8] shadow-md' : 'text-[#EAE0C8]/50 hover:text-[#EAE0C8]'}`}
+          className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${activeTab === 'active' ? 'bg-[var(--color-700)] text-white shadow-md' : 'text-[var(--text-caption)] hover:text-[var(--color-700)]'}`}
         >
           Active Trips
         </button>
         <button
           onClick={() => setActiveTab('past')}
-          className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${activeTab === 'past' ? 'bg-blue-600/90 text-[#EAE0C8] shadow-md' : 'text-[#EAE0C8]/50 hover:text-[#EAE0C8]'}`}
+          className={`flex-1 rounded-xl py-3 text-sm font-bold transition-all ${activeTab === 'past' ? 'bg-[var(--color-700)] text-white shadow-md' : 'text-[var(--text-caption)] hover:text-[var(--color-700)]'}`}
         >
           Past Trips
         </button>
@@ -59,45 +57,41 @@ export default function CreateTrip() {
       <div className="space-y-4">
         {loading ? (
           <div className="py-10 text-center opacity-50">
-            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-            <p className="font-medium tracking-wide text-[#EAE0C8]">Loading trips...</p>
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-700)] border-t-transparent"></div>
+            <p className="font-medium tracking-wide text-[var(--text-caption)]">Loading trips...</p>
           </div>
         ) : displayedTrips.length === 0 ? (
-          <div className="mt-8 flex flex-col items-center justify-center rounded-[2rem] border border-white/5 bg-[#111A3A]/70 p-10 text-center shadow-xl backdrop-blur-xl">
-            <div className="mb-4 text-5xl opacity-50">Trips</div>
-            <p className="text-lg font-medium leading-relaxed text-[#EAE0C8]/50">No {activeTab} trips yet.</p>
+          <div className="empty-state">
+            <div className="empty-state-icon">Trips</div>
+            <p className="empty-state-desc">No {activeTab} trips yet.</p>
           </div>
         ) : (
           displayedTrips.map((trip) => (
-            <div key={trip.id} className="flex flex-col gap-3 rounded-[1.5rem] border border-white/5 bg-[#111A3A]/70 p-5 shadow-xl backdrop-blur-xl transition-colors hover:bg-[#111A3A]">
+            <div key={trip.id} className={`trip-card ${trip.status === 'completed' ? 'completed' : trip.status === 'pending' ? 'pending' : 'matched'}`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1 pr-4">
                   <div className="flex items-center gap-3">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></span>
-                    <h3 className="truncate text-base font-bold leading-tight text-[#EAE0C8]">{trip.origin_landmark || 'Unknown Origin'}</h3>
+                    <span className="route-dot origin"></span>
+                    <h3 className="truncate text-base font-bold leading-tight text-[var(--color-900)]">{trip.origin_landmark || 'Unknown Origin'}</h3>
                   </div>
-                  <div className="my-1 ml-[4px] h-3 w-[2px] rounded-full bg-[#EAE0C8]/10"></div>
+                  <div className="route-line my-1"></div>
                   <div className="flex items-center gap-3">
-                    <span className="h-2.5 w-2.5 shrink-0 rotate-45 bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]"></span>
-                    <h3 className="truncate text-base font-bold leading-tight text-[#EAE0C8]">{trip.destination_landmark || 'Unknown Destination'}</h3>
+                    <span className="route-dot destination"></span>
+                    <h3 className="truncate text-base font-bold leading-tight text-[var(--color-900)]">{trip.destination_landmark || 'Unknown Destination'}</h3>
                   </div>
                 </div>
-                <span className={`shrink-0 rounded-xl px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-widest ${trip.status === 'pending' ? 'border border-blue-500/30 bg-blue-500/20 text-blue-300' :
-                  trip.status === 'active' ? 'border border-blue-500/30 bg-blue-500/20 text-blue-300' :
-                    trip.status === 'completed' ? 'border border-green-500/30 bg-green-500/20 text-green-300' :
-                      'border border-white/5 bg-[#EAE0C8]/10 text-[#EAE0C8]/60'
-                  }`}>
+                <span className={`chip ${trip.status === 'completed' ? 'chip-completed' : trip.status === 'pending' ? 'chip-pending' : 'chip-matched'}`}>
                   {trip.status}
                 </span>
               </div>
 
-              <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-3 text-sm">
-                <span className="flex items-center gap-1.5 text-xs font-medium text-[#EAE0C8]/50">
+              <div className="mt-2 flex items-center justify-between border-t border-[var(--border-light)] pt-3 text-sm">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-caption)]">
                   <span>Time</span>
                   {trip.created_at?.toDate ? trip.created_at.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Just now'}
                 </span>
                 {trip.circle_type && (
-                  <span className="rounded-md bg-blue-500/10 px-2 py-1 text-xs font-semibold tracking-wide text-blue-300/80">
+                  <span className="chip chip-matched">
                     {trip.circle_type.replace('_', ' ')}
                   </span>
                 )}

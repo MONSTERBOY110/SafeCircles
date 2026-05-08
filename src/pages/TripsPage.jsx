@@ -6,11 +6,14 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Navigation from '../components/Layout/Navigation';
-import { Loader2, MapPin, Users, ArrowRight, Clock, AlertCircle, Search } from 'lucide-react';
+import PageTransition from '../components/PageTransition';
+import { Loader2, MapPin, Users, ArrowRight, Clock, AlertCircle, Search, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export default function TripsPage() {
   const { user, loading: authLoading } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
 
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -163,7 +166,211 @@ export default function TripsPage() {
     }
   };
 
+  const renderRouteInfo = (trip) => (
+    <div className="route-info">
+      <div className="route-stop">
+        <span className="route-dot origin" />
+        <span>{trip.origin_landmark || trip.origin || 'Unknown origin'}</span>
+      </div>
+      <div className="route-line" />
+      <div className="route-stop">
+        <span className="route-dot destination" />
+        <span>{trip.destination_landmark || trip.destination || 'Unknown destination'}</span>
+      </div>
+    </div>
+  );
+
   return (
+    <div className="app-shell">
+      <Header title="My Trips" />
+      <PageTransition>
+        {loading || authLoading ? (
+          <div className="empty-state">
+            <Loader2 className="mb-3 h-8 w-8 animate-spin text-[var(--color-700)]" />
+            <p className="empty-state-desc">Loading trips...</p>
+          </div>
+        ) : trips.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <AlertCircle size={28} />
+            </div>
+            <h2 className="empty-state-title">No trips yet</h2>
+            <p className="empty-state-desc">Create a SafeCircle from the dashboard when you're ready to travel.</p>
+          </div>
+        ) : (
+          <>
+            {pendingTrips.length > 0 && (
+              <section>
+                <div className="section-header">
+                  <h2 className="section-title">Searching</h2>
+                </div>
+                {pendingTrips.map((trip, index) => (
+                  <motion.div
+                    key={trip.id}
+                    className="trip-card pending"
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: shouldReduceMotion ? 0 : index * 0.07, duration: shouldReduceMotion ? 0 : 0.3, ease: 'easeOut' }}
+                  >
+                    <div className="card-header">
+                      <div>
+                        <div className="card-title">Finding your circle</div>
+                        <div className="card-subtitle">Looking for nearby verified users</div>
+                      </div>
+                      <span className="chip chip-pending chip-dot">Searching</span>
+                    </div>
+
+                    <div className="searching-animation">
+                      <div className="pulse-ring">
+                        <MapPin size={24} />
+                      </div>
+                      <p className="searching-text">Finding your SafeCircle...</p>
+                      <p className="searching-subtext">Matching companions on your route</p>
+                    </div>
+
+                    {renderRouteInfo(trip)}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {showFallback && (
+                        <button
+                          type="button"
+                          onClick={() => handleTryAgain(trip.id)}
+                          disabled={retryingTripId === trip.id}
+                          className="btn-danger"
+                        >
+                          {retryingTripId === trip.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw size={16} />}
+                          Try Again
+                        </button>
+                      )}
+                      {trip.userId === user?.uid && trip.status === 'pending' && (
+                        confirmingDeleteTripId === trip.id ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTrip(trip)}
+                              disabled={deletingTripId === trip.id}
+                              className="btn-danger"
+                            >
+                              {deletingTripId === trip.id ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingDeleteTripId(null)}
+                              disabled={deletingTripId === trip.id}
+                              className="btn-secondary !h-11 !w-auto px-5"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingDeleteTripId(trip.id)}
+                            disabled={deletingTripId === trip.id}
+                            className="btn-danger"
+                          >
+                            Delete Trip
+                          </button>
+                        )
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </section>
+            )}
+
+            {matchedTrips.length > 0 && (
+              <section>
+                <div className="section-header">
+                  <h2 className="section-title">Matched</h2>
+                </div>
+                {matchedTrips.map((trip, index) => {
+                  const tripMembers = members[trip.id] || [];
+                  const circle = circles[trip.circle_id];
+
+                  return (
+                    <motion.div
+                      key={trip.id}
+                      className="trip-card matched"
+                      initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: shouldReduceMotion ? 0 : index * 0.07, duration: shouldReduceMotion ? 0 : 0.3, ease: 'easeOut' }}
+                    >
+                      <div className="card-header">
+                        <div>
+                          <div className="card-title">SafeCircle Found</div>
+                          <div className="card-subtitle">{tripMembers.length || 'Loading'} members matched</div>
+                        </div>
+                        <span className="chip chip-matched chip-dot">Matched</span>
+                      </div>
+
+                      {renderRouteInfo(trip)}
+
+                      <div className="member-preview-row">
+                        {tripMembers.slice(0, 4).map((member) => (
+                          <div key={member.uid} className="member-avatar-sm">
+                            {(member.name || 'U')[0].toUpperCase()}
+                          </div>
+                        ))}
+                        <span className="member-preview-label">
+                          {tripMembers.length > 0 ? `${tripMembers.length} members` : 'Loading members...'}
+                        </span>
+                      </div>
+
+                      <div className="meeting-point-row">
+                        <MapPin className="shrink-0 text-[var(--color-700)]" size={18} />
+                        <span className="text-sm font-semibold">
+                          Meet at: {circle?.meeting_point?.name || 'Loading meeting point...'}
+                        </span>
+                      </div>
+
+                      <Link to={`/circle/${trip.circle_id}`} className="btn-primary mt-4">
+                        View Circle
+                        <ArrowRight size={16} />
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </section>
+            )}
+
+            {completedTrips.length > 0 && (
+              <section>
+                <div className="section-header">
+                  <h2 className="section-title">Past Trips</h2>
+                </div>
+                {completedTrips.map((trip, index) => (
+                  <motion.div
+                    key={trip.id}
+                    className="trip-card completed"
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: shouldReduceMotion ? 0 : index * 0.07, duration: shouldReduceMotion ? 0 : 0.3, ease: 'easeOut' }}
+                  >
+                    <div className="card-header">
+                      <div>
+                        <div className="card-title">Trip completed</div>
+                        {trip.completedAt && (
+                          <div className="card-subtitle">
+                            {formatDate(trip.completedAt)} at {formatTime(trip.completedAt)}
+                          </div>
+                        )}
+                      </div>
+                      <span className="chip chip-completed chip-dot">Completed</span>
+                    </div>
+                    {renderRouteInfo(trip)}
+                  </motion.div>
+                ))}
+              </section>
+            )}
+          </>
+        )}
+      </PageTransition>
+      <Navigation />
+    </div>
+  );
+
+  if (false) return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col font-sans text-[#eae0c8] relative">
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
 

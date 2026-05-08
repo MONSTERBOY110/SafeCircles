@@ -1,6 +1,8 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
 // Pages
@@ -15,49 +17,72 @@ import TripsPage from './pages/TripsPage';
 import NotFound from './pages/NotFound';
 import VerificationFlow from './components/Verification/VerificationFlow';
 
-function App() {
+function AppRoute({ children, protectedRoute = false }) {
+  return protectedRoute ? <ProtectedRoute>{children}</ProtectedRoute> : children;
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const isLandingRoute = location.pathname === '/';
+
+  if (isLandingRoute) {
+    return (
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Home />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    );
+  }
+
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+    <ThemeProvider>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/login" element={<AppRoute><Login /></AppRoute>} />
+          <Route path="/signup" element={<AppRoute><Signup /></AppRoute>} />
 
           {/* Protected Routes */}
           <Route
             path="/dashboard"
-            element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><Dashboard /></AppRoute>}
           />
           <Route
             path="/create-trip"
-            element={<ProtectedRoute><CreateTripPage /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><CreateTripPage /></AppRoute>}
           />
           <Route
             path="/trips"
-            element={<ProtectedRoute><TripsPage /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><TripsPage /></AppRoute>}
           />
           <Route
             path="/circle"
-            element={<ProtectedRoute><CirclePage /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><CirclePage /></AppRoute>}
           />
           <Route
             path="/circle/:circleId"
-            element={<ProtectedRoute><CirclePage /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><CirclePage /></AppRoute>}
           />
           <Route
             path="/profile"
-            element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><ProfilePage /></AppRoute>}
           />
           <Route
             path="/verify"
-            element={<ProtectedRoute><VerificationFlow /></ProtectedRoute>}
+            element={<AppRoute protectedRoute><VerificationFlow /></AppRoute>}
           />
 
-          {/* 404 */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="*" element={<AppRoute><NotFound /></AppRoute>} />
         </Routes>
+      </AnimatePresence>
+    </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <AppRoutes />
       </AuthProvider>
     </Router>
   );

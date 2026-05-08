@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -11,6 +12,8 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -85,88 +88,117 @@ export default function Signup() {
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-top bg-no-repeat relative"
-      style={{ backgroundImage: "url('/hero-bg.png')" }}
-    >
-      {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0B132B]/70 to-[#0B132B]/90 z-0"></div>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <div className="auth-wordmark">
+            <ShieldCheck size={28} color="var(--color-700)" fill="rgba(0,119,182,0.12)" />
+            SafeCircles
+          </div>
+          <p className="auth-tagline">Travel safe, together</p>
+        </div>
 
-      {/* Glassmorphism Card */}
-      <div className="relative z-10 bg-[#111A3A]/70 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-[400px] border border-white/5">
-        <h1 className="text-3xl font-extrabold text-[#eae0c8] text-center mb-6 tracking-wide">
-          Create your SafeCircle
-        </h1>
+        <h1 className="auth-title">Create account</h1>
+        <p className="auth-subtitle">Join verified companions for safer trips</p>
         
-        {/* Error Message Display */}
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-[#EAE0C8] p-3 rounded-lg mb-4 text-sm text-center">
+          <div className="error-message">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSignup} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[#eae0c8]/80 mb-1">Full Name</label>
-            <input
-              type="text"
-              required
-              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
-              placeholder=""
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+        <form onSubmit={handleSignup}>
+          <div className="input-group">
+            <label className="input-label">Full Name</label>
+            <div className="input-with-icon">
+              <UserRound className="input-icon" />
+              <input
+                type="text"
+                required
+                className="input-field"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-[#eae0c8]/80 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
-              placeholder=""
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <div className="input-group">
+            <label className="input-label">Email</label>
+            <div className="input-with-icon">
+              <Mail className="input-icon" />
+              <input
+                type="email"
+                required
+                className="input-field"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-[#eae0c8]/80 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
-              placeholder="Min. 6 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+          <div className="input-group">
+            <label className="input-label">Password</label>
+            <div className="input-with-icon">
+              <Lock className="input-icon" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                className="input-field pr-12"
+                placeholder="Min. 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[#eae0c8]/80 mb-1">Confirm Password</label>
-            <input
-              type="password"
-              required
-              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
-              placeholder="Repeat your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+          <div className="input-group">
+            <label className="input-label">Confirm Password</label>
+            <div className="input-with-icon">
+              <Lock className="input-icon" />
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                required
+                className="input-field pr-12"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowConfirmPassword((value) => !value)}
+                aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600/90 text-[#EAE0C8] font-bold py-3 rounded-lg hover:bg-blue-500 hover:scale-105 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none mt-2"
+            className="btn-primary mt-2"
           >
-            {loading ? 'Processing...' : 'Sign Up'}
+            {loading ? 'Processing...' : 'Create Account'}
           </button>
         </form>
 
-        <p className="text-center text-[#eae0c8]/70 text-sm mt-6">
+        <div className="divider" />
+
+        <p className="text-center text-[13px] font-medium text-[var(--text-caption)]">
           Already have an account?{' '}
-          <Link to="/login" className="text-blue-400 font-semibold hover:text-blue-300 transition-colors">
-            Sign In
+          <Link to="/login">
+            Log in
           </Link>
         </p>
       </div>

@@ -4,14 +4,14 @@ import { CheckCircle2, Clock } from 'lucide-react';
 export default function VerificationBadge({ status }) {
   if (status === 'VERIFIED') {
     return (
-      <span className="inline-flex items-center gap-1.5 bg-green-500/10 text-green-400 text-xs font-bold px-3 py-1 rounded-full mt-1 border border-green-500/20 uppercase tracking-wider">
-        <CheckCircle2 className="w-3 h-3" /> Verified
+      <span className="chip chip-completed mt-2">
+        <CheckCircle2 size={12} /> Verified
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1.5 bg-blue-500/10 text-blue-300 text-xs font-bold px-3 py-1 rounded-full mt-1 border border-blue-500/20 uppercase tracking-wider">
-      <Clock className="w-3 h-3" /> Pending Verification
+    <span className="chip chip-pending mt-2">
+      <Clock size={12} /> Pending
     </span>
   );
 }

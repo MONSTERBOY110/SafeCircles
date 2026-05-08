@@ -8,11 +8,14 @@ import {
   addDoc, serverTimestamp, writeBatch, updateDoc, arrayUnion
 } from 'firebase/firestore';
 import { MapContainer, TileLayer, Marker, Polyline, Circle as LeafletCircle, useMap } from 'react-leaflet';
-import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2 } from 'lucide-react';
+import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2, Bell, PhoneCall, Flag, Send, Star } from 'lucide-react';
 import ngeohash from 'ngeohash';
 import toast from 'react-hot-toast';
 import Header from '../components/Layout/Header';
 import Navigation from '../components/Layout/Navigation';
+import PageTransition from '../components/PageTransition';
+import ThemedTileLayer from '../components/ThemedTileLayer';
+import { motion, useReducedMotion } from 'framer-motion';
 
 // Map Auto-Center Component
 function AutoCenterMap({ position }) {
@@ -66,6 +69,7 @@ function isSameLatLng(a, b) {
 }
 
 export default function CirclePage() {
+  const shouldReduceMotion = useReducedMotion();
   const { circleId: paramCircleId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -498,6 +502,287 @@ export default function CirclePage() {
     'Meeting Point';
 
   return (
+    <div className="app-shell">
+      <Header title="SafeCircle" />
+      <PageTransition>
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Your SafeCircle</div>
+              <div className="card-subtitle">{members.length} member{members.length !== 1 ? 's' : ''} traveling together</div>
+            </div>
+            <span className={`chip chip-dot ${circle.status === 'completed' ? 'chip-completed' : 'chip-matched'}`}>
+              {circle.status || 'Matched'}
+            </span>
+          </div>
+          <div className="route-info">
+            <div className="route-stop">
+              <span className="route-dot origin" />
+              <span>{sourceLabel}</span>
+            </div>
+            <div className="route-line" />
+            <div className="route-stop">
+              <span className="route-dot destination" />
+              <span>{destinationLabel}</span>
+            </div>
+          </div>
+        </div>
+
+        <section className="circle-members-section">
+          <div className="section-header">
+            <h2 className="section-title">Members</h2>
+          </div>
+          {members.map((member, idx) => (
+            <div key={member.uid + idx} className="member-card">
+              <div className="member-avatar">{(member.name || 'U')[0].toUpperCase()}</div>
+              <div className="min-w-0 flex-1">
+                <p className="member-name">
+                  {member.name || 'SafeCircle member'} {member.uid === userId && <span className="text-[var(--color-600)]">(You)</span>}
+                </p>
+                <p className="member-rep inline-flex items-center gap-1">
+                  <Star size={12} fill="var(--color-500)" color="var(--color-500)" />
+                  {member.reputation?.toFixed ? member.reputation.toFixed(1) : member.reputation || 0}
+                </p>
+              </div>
+              {member.verified && <Shield className="text-[var(--safe-green)]" size={18} />}
+            </div>
+          ))}
+        </section>
+
+        <div className="section-header">
+          <h2 className="section-title">Meeting Point</h2>
+        </div>
+        <div className="meeting-point-banner">
+          <Flag className="shrink-0 text-[var(--color-700)]" size={20} />
+          <div>
+            <p className="meeting-point-label">Meet at</p>
+            <p className="meeting-point-value">{meetingPointLabel}</p>
+            <p className="card-subtitle">
+              Departure: {circle.estimated_departure ? new Date(circle.estimated_departure).toLocaleTimeString() : 'TBD'}
+            </p>
+          </div>
+        </div>
+
+        {mapCenter && (
+          <>
+            <div className="section-header">
+              <h2 className="section-title">Route Map</h2>
+            </div>
+            <div className="map-container mb-5">
+              <MapContainer center={mapCenter} zoom={15} className="h-full w-full">
+                <ThemedTileLayer />
+                {walkingRoute.length > 0 && (
+                  <Polyline
+                    positions={walkingRoute}
+                    pathOptions={{ color: '#0077b6', weight: 5, opacity: 0.85 }}
+                  />
+                )}
+                {sourceCoords && <Marker position={sourceCoords} />}
+                {destinationCoords && <Marker position={destinationCoords} />}
+                {meetingPointCoords && !isSameLatLng(meetingPointCoords, sourceCoords) && !isSameLatLng(meetingPointCoords, destinationCoords) && (
+                  <Marker position={meetingPointCoords} />
+                )}
+                {userLocation && <AutoCenterMap position={userLocation} />}
+                <FitMapBounds positions={walkingRoute.length > 0 ? walkingRoute : [sourceCoords, destinationCoords, meetingPointCoords]} />
+              </MapContainer>
+              {(routeLoading || routeError) && (
+                <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[500] rounded-xl border border-[var(--border-light)] bg-white/90 px-3 py-2 text-xs font-semibold text-[var(--text-caption)]">
+                  {routeLoading ? 'Loading walking route...' : routeError}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        <section className="chat-section">
+          <div className="section-header">
+            <h2 className="section-title">Circle Chat</h2>
+          </div>
+          <div className="chat-messages">
+            {messages.length === 0 ? (
+              <p className="empty-state-desc m-auto">No messages yet</p>
+            ) : (
+              messages.map((msg) => {
+                const isOwn = msg.senderId === currentUser?.uid || msg.sender_id === currentUser?.uid;
+                const created = msg.createdAt || msg.created_at;
+                return (
+                  <motion.div
+                    key={msg.id}
+                    className={`chat-bubble ${isOwn ? 'own' : 'other'}`}
+                    initial={shouldReduceMotion ? false : { opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: 'easeOut' }}
+                  >
+                    {!isOwn && <p className="sender-name">{msg.senderName || msg.sender_name || 'User'}</p>}
+                    <p>{msg.text}</p>
+                    {created && (
+                      <p className="message-time">
+                        {typeof created?.toDate === 'function' ? created.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </p>
+                    )}
+                  </motion.div>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="chat-input-row">
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Message your circle..."
+              maxLength={300}
+              className="chat-input-field"
+            />
+            <button type="button" onClick={handleSendMessage} disabled={!messageText.trim()} className="chat-send-btn" aria-label="Send message">
+              <Send size={18} />
+            </button>
+          </div>
+        </section>
+
+        <div className="section-header">
+          <h2 className="section-title">Emergency Tools</h2>
+        </div>
+        <div className="emergency-grid">
+          <motion.button
+            type="button"
+            onClick={handleAlertCircle}
+            className="emergency-card alert"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          >
+            <span className="emergency-icon-wrap"><Bell size={18} /></span>
+            <span className="emergency-card-label">Alert Circle</span>
+            <span className="emergency-card-desc">Notify all members now</span>
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={handleFakeCall}
+            className="emergency-card fake-call"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          >
+            <span className="emergency-icon-wrap"><Phone size={18} /></span>
+            <span className="emergency-card-label">Fake Call</span>
+            <span className="emergency-card-desc">Simulate incoming call</span>
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={handleShareLocation}
+            className="emergency-card share-location"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          >
+            <span className="emergency-icon-wrap"><Share2 size={18} /></span>
+            <span className="emergency-card-label">Share Location</span>
+            <span className="emergency-card-desc">Send via WhatsApp</span>
+          </motion.button>
+          <motion.button
+            type="button"
+            onClick={() => setShowEmergency(true)}
+            className="emergency-card emergency-call"
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          >
+            <span className="emergency-icon-wrap"><PhoneCall size={18} /></span>
+            <span className="emergency-card-label">Emergency Call</span>
+            <span className="emergency-card-desc">Police 100 · Helpline 1090</span>
+          </motion.button>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Safety Status</div>
+              <div className="card-subtitle">Send a quick status update to your circle</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => handleSafetyPing('safe')} disabled={lastSafetyPing === 'safe'} className="chip chip-completed justify-center !h-11">Safe</button>
+            <button onClick={() => handleSafetyPing('moderate')} disabled={lastSafetyPing === 'moderate'} className="chip chip-matched justify-center !h-11">Moderate</button>
+            <button onClick={() => handleSafetyPing('avoid')} disabled={lastSafetyPing === 'avoid'} className="chip chip-danger justify-center !h-11">Avoid</button>
+          </div>
+        </div>
+
+        {(() => {
+          const alreadyReached =
+            Array.isArray(circle?.reachedBy) &&
+            currentUser?.uid &&
+            circle.reachedBy.includes(currentUser.uid);
+          return (
+            <button
+              onClick={() => setShowCompleteConfirm(true)}
+              disabled={alreadyReached}
+              className="btn-reached-safely"
+            >
+              <CheckCircle2 size={20} />
+              {alreadyReached ? 'Already Marked Reached' : 'Reached Safely'}
+            </button>
+          );
+        })()}
+      </PageTransition>
+
+      {showFakeCall && (
+        <div className="modal-backdrop">
+          <div className="modal-card text-center">
+            <Phone className="mx-auto mb-4 animate-pulse text-[var(--color-600)]" size={56} />
+            <h3 className="profile-name">Incoming Call</h3>
+            <p className="profile-email mb-4">Mom</p>
+            <p className="card-subtitle">"I'm calling the police, stay safe"</p>
+          </div>
+        </div>
+      )}
+
+      {showEmergency && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3 className="card-title mb-4 flex items-center gap-2">
+              <AlertTriangle className="text-[var(--emergency-red)]" size={22} />
+              Emergency Contacts
+            </h3>
+            <div className="grid gap-3">
+              <a href="tel:100" className="btn-danger w-full">Call Police (100)</a>
+              <a href="tel:1090" className="btn-danger w-full">Women Helpline (1090)</a>
+              <button onClick={() => setShowEmergency(false)} className="btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCompleteConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <h3 className="card-title mb-2 flex items-center gap-2">
+              <CheckCircle2 className="text-[var(--safe-green)]" size={22} />
+              Mark Reached Safely?
+            </h3>
+            <p className="card-subtitle mb-5">
+              This confirms you've reached your destination. Other members can still complete their own trips independently.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setShowCompleteConfirm(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleCompleteTrip} className="btn-primary">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Navigation />
+    </div>
+  );
+
+  if (false) return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col text-[#eae0c8] pb-20">
       <Header />
 

@@ -6,6 +6,8 @@ import { findAndMatchTrips } from '../services/matching';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import Navigation from '../components/Layout/Navigation';
+import PageTransition from '../components/PageTransition';
+import ThemedTileLayer from '../components/ThemedTileLayer';
 import { MapContainer, TileLayer, useMap, Circle, CircleMarker } from 'react-leaflet';
 import ngeohash from 'ngeohash';
 import toast from 'react-hot-toast';
@@ -48,10 +50,10 @@ function RecenterButton({ position }) {
         e.stopPropagation();
         map.setView(position, Math.max(map.getZoom(), 16), { animate: true });
       }}
-      className="absolute top-3 right-3 z-[400] w-10 h-10 rounded-full bg-[#0B132B]/90 backdrop-blur-md border border-white/10 flex items-center justify-center text-blue-300 hover:bg-[#0B132B] shadow-lg"
+      className="map-recenter-btn"
       aria-label="Recenter map"
     >
-      <Crosshair className="w-5 h-5" />
+      <Crosshair size={18} />
     </button>
   );
 }
@@ -412,13 +414,217 @@ export default function Dashboard() {
 
   if (authLoading || tripsLoading) {
     return (
-      <div className="min-h-screen bg-[#0B132B] flex flex-col items-center justify-center p-4">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+      <div className="app-shell flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--color-700)]" />
       </div>
     );
   }
 
   return (
+    <div className="app-shell">
+      {showPopup && (
+        <div
+          className="fixed left-4 right-4 top-4 z-50 mx-auto max-w-[448px] rounded-xl bg-[var(--safe-green)] px-4 py-3 text-center text-sm font-bold text-white shadow-lg"
+          style={{ animation: 'tripSuccessPopup 1500ms ease-in-out forwards' }}
+        >
+          Trip created successfully
+        </div>
+      )}
+      <style>
+        {`
+          @keyframes tripSuccessPopup {
+            0% { opacity: 0; transform: translateY(-10px); }
+            12% { opacity: 1; transform: translateY(0); }
+            82% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+          }
+        `}
+      </style>
+
+      <Header title="Dashboard" />
+      <PageTransition>
+        <div className="greeting-card">
+          <div className="relative z-10">
+            <p className="greeting-name">Good day, {displayName.split(' ')[0]}</p>
+            <p className="greeting-sub">Ready for a safe journey?</p>
+            <span className="greeting-verified-badge">
+              <ShieldCheck size={14} />
+              {isVerified ? 'Verified traveler' : 'Verification pending'}
+            </span>
+          </div>
+        </div>
+
+        {!isVerified && (
+          <div className="active-trip-banner">
+            <ShieldCheck className="shrink-0 text-[var(--color-700)]" size={22} />
+            <div className="min-w-0 flex-1">
+              <p className="active-trip-banner-text">Complete identity verification to start SafeCircle trips.</p>
+            </div>
+            <Link to="/verify" className="btn-ghost shrink-0">
+              Verify
+            </Link>
+          </div>
+        )}
+
+        {trips.some((t) => t.status === 'pending' || t.status === 'matched') && (
+          <div className="active-trip-banner">
+            <Clock className="shrink-0 text-[var(--color-700)]" size={20} />
+            <p className="active-trip-banner-text">You already have an active search. Track it from My Trips.</p>
+          </div>
+        )}
+
+        <form onSubmit={handleCreateTrip} className="trip-form-card">
+          <h2 className="trip-form-heading">Create a SafeCircle</h2>
+          <div className="route-input-container">
+            <div className="route-input-item">
+              <span className="route-dot origin" />
+              <input
+                type="text"
+                value={source}
+                onChange={(e) => handleSourceChange(e.target.value)}
+                onFocus={() => setActiveField('source')}
+                placeholder="Pickup location"
+                required
+                autoComplete="off"
+                className="route-input-field"
+              />
+            </div>
+            <div className="route-line" />
+            <div className="route-input-item">
+              <span className="route-dot destination" />
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => handleDestinationChange(e.target.value)}
+                onFocus={() => setActiveField('destination')}
+                placeholder="Where to?"
+                required
+                autoComplete="off"
+                className="route-input-field"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !isVerified}
+            className="btn-primary mt-4"
+          >
+            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Users size={18} />}
+            Create SafeCircle
+          </button>
+        </form>
+
+        {activeField ? (
+          <div className="suggestion-panel">
+            <div className="flex items-center justify-between border-b border-[var(--border-light)] px-4 py-3">
+              <h3 className="section-title m-0">
+                {activeField === 'source' ? 'Set Pickup Location' : 'Set Destination'}
+              </h3>
+              <button type="button" onClick={() => setActiveField(null)} className="topbar-action" aria-label="Close suggestions">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-[46vh] overflow-y-auto">
+              <button
+                type="button"
+                onClick={useCurrentLocation}
+                disabled={!userLocation}
+                className="suggestion-item disabled:opacity-50"
+              >
+                <span className="suggestion-icon">
+                  <Crosshair size={17} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="suggestion-label block">Use Current Location</span>
+                  <span className="suggestion-sublabel block">
+                    {reverseGeoLoading ? 'Locating...' : reverseGeoLabel || 'Tap to use GPS'}
+                  </span>
+                </span>
+              </button>
+
+              {((activeField === 'source' ? source : destination).trim().length < 3) && recentLocations.length > 0 && (
+                <>
+                  <p className="suggestion-section-title">Recent</p>
+                  {recentLocations.map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => (activeField === 'source'
+                        ? handleSelectSource({ display_name: p.label, lat: p.lat, lon: p.lng, place_id: `recent-${p.label}` })
+                        : handleSelectDestination({ display_name: p.label, lat: p.lat, lon: p.lng, place_id: `recent-${p.label}` }))}
+                      className="suggestion-item"
+                    >
+                      <span className="suggestion-icon">
+                        <Clock size={17} />
+                      </span>
+                      <span className="suggestion-label min-w-0 flex-1">{p.label}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {((activeField === 'source' ? sourceSuggestions : destinationSuggestions).length > 0) && (
+                <>
+                  <p className="suggestion-section-title">Suggestions</p>
+                  {(activeField === 'source' ? sourceSuggestions : destinationSuggestions).map((s) => (
+                    <button
+                      key={s.place_id}
+                      type="button"
+                      onClick={() => (activeField === 'source' ? handleSelectSource(s) : handleSelectDestination(s))}
+                      className="suggestion-item"
+                    >
+                      <span className="suggestion-icon">
+                        <MapPin size={17} />
+                      </span>
+                      <span className="suggestion-label min-w-0 flex-1">{s.display_name}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="map-container">
+            {userLocation ? (
+              <>
+                <MapContainer
+                  center={userLocation}
+                  zoom={15}
+                  zoomControl={false}
+                  style={{ height: '100%', width: '100%', zIndex: 1 }}
+                >
+                  <ThemedTileLayer />
+                  <LocationMarker position={userLocation} accuracy={locationAccuracy} />
+                  <RecenterButton position={userLocation} />
+                </MapContainer>
+                {locationAccuracy !== null && locationAccuracy > 1000 && (
+                  <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[400] rounded-xl border border-[var(--border-light)] bg-white/90 px-3 py-2 text-xs font-semibold text-[var(--text-caption)] shadow">
+                    Approximate location (~{locationAccuracy >= 1000 ? `${(locationAccuracy / 1000).toFixed(1)}km` : `${Math.round(locationAccuracy)}m`}). Open on your phone for an accurate fix.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--bg-surface)] px-6 text-center">
+                {locationError ? (
+                  <p className="text-sm font-semibold text-[var(--text-caption)]">{locationError}</p>
+                ) : (
+                  <>
+                    <Loader2 className="mb-4 h-8 w-8 animate-spin text-[var(--color-700)]" />
+                    <p className="section-title">Getting location</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </PageTransition>
+      <Navigation />
+    </div>
+  );
+
+  if (false) return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col font-sans text-[#eae0c8] relative">
       {showPopup && (
         <div

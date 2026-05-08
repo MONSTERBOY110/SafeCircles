@@ -10,17 +10,17 @@ export default function EmergencyContacts() {
   ];
 
   return (
-    <div className="rounded-xl border border-white/5 bg-[#111A3A]/70 p-5 shadow">
-      <h4 className="mb-4 font-bold text-[#EAE0C8]">Emergency Contacts</h4>
+    <div className="card">
+      <h4 className="card-title mb-4">Emergency Contacts</h4>
       <div className="grid grid-cols-2 gap-3">
         {contacts.map((c) => (
           <a
             key={c.number}
             href={`tel:${c.number}`}
-            className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-[#0B132B]/60 p-3 text-center transition hover:border-red-500/40 hover:bg-red-500/10"
+            className="rounded-xl border border-[var(--border-light)] bg-[var(--bg-surface)] p-3 text-center transition hover:border-[var(--emergency-red)] hover:bg-[var(--emergency-red-bg)]"
           >
-            <span className="text-xs font-semibold text-[#EAE0C8]/70">{c.label}</span>
-            <span className="font-bold text-blue-300">{c.number}</span>
+            <span className="block text-xs font-semibold text-[var(--text-caption)]">{c.label}</span>
+            <span className="font-bold text-[var(--color-700)]">{c.number}</span>
           </a>
         ))}
       </div>
