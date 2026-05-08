@@ -1,123 +1,155 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import ScrollFrameSequence from '../components/ScrollFrameSequence';
+
+const FEATURES = [
+  {
+    title: 'Verified Users',
+    body: 'Only verified users can join the safety network.',
+  },
+  {
+    title: 'Real-Time Matching',
+    body: 'Users are matched by route proximity and travel timing.',
+  },
+  {
+    title: 'SafeCircle Groups',
+    body: 'Temporary trusted groups are formed for safer journeys.',
+  },
+  {
+    title: 'In-App Coordination',
+    body: 'Members can view meeting points, routes, and chat securely.',
+  },
+];
+
+// Linear interp clamped to [0, 1] inverted for fade-out: returns 1 before
+// `start`, 0 after `end`, and linearly fades between.
+const fadeOutAt = (progress, start, end) =>
+  Math.max(0, Math.min(1, 1 - (progress - start) / (end - start)));
 
 export default function Home() {
+  // scframe1 has 240 frames, scframe2 has 170 frames.
+  // In a flat sequence they run from frame 0 to 409 (410 total).
+  // scframe1 ends at progress 240/410 ≈ 0.585.
+  // We fade the hero text from progress 0.30 (mid-scframe1) to 0.55 (just
+  // before scframe2 starts) so the overlay is fully gone by the time the
+  // story transitions.
+  const HERO_FADE_START = 0.30;
+  const HERO_FADE_END = 0.55;
+
   return (
-    <div className="min-h-screen font-sans bg-[#0B132B] text-[#FDF6E3] selection:bg-[#FDF6E3] selection:text-[#0B132B] smooth-scroll">
+    <div className="min-h-screen font-sans bg-[#0B132B] text-[#EAE0C8] selection:bg-[#EAE0C8] selection:text-[#0B132B]">
+      {/* 1+2. Hero + Story 2 — ONE continuous sticky stage so the canvas never
+              unsticks between scframe1 and scframe2. The hero text fades out
+              as scframe1 ends. */}
+      <ScrollFrameSequence
+        sequences={[
+          { folderPath: '/frames/scframe1', lastFrame: 240 },
+          { folderPath: '/frames/scframe2', lastFrame: 170 },
+        ]}
+        scrollHeight="600vh"
+        overlayContent={({ progress }) => {
+          const textOpacity = fadeOutAt(progress, HERO_FADE_START, HERO_FADE_END);
+          // The dark gradient also fades out so scframe2 is presented cleanly.
+          const gradientOpacity = fadeOutAt(progress, HERO_FADE_START + 0.05, HERO_FADE_END + 0.05);
+          return (
+            <div className="relative w-full h-full pointer-events-none">
+              {/* Dark gradient backdrop for text readability — fades with the text */}
+              <div
+                className="absolute inset-0 bg-gradient-to-b from-[#0B132B]/40 via-[#0B132B]/20 to-[#0B132B]/80 transition-opacity"
+                style={{ opacity: gradientOpacity }}
+              />
+              <div
+                className="relative z-10 h-full flex flex-col items-center justify-center text-center px-6 max-w-5xl mx-auto transition-opacity"
+                style={{
+                  opacity: textOpacity,
+                  // Once fully faded, drop the layer out of pointer-events so
+                  // the canvas isn't blocked by an invisible overlay.
+                  pointerEvents: textOpacity < 0.05 ? 'none' : undefined,
+                }}
+              >
+                <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-tighter text-[#EAE0C8] uppercase drop-shadow-2xl">
+                  SafeCircles
+                </h1>
+                <p className="mt-4 text-2xl md:text-4xl font-semibold text-[#EAE0C8] drop-shadow-lg">
+                  Walk safer. Together.
+                </p>
+                <div className="mt-10 flex flex-col sm:flex-row gap-6 justify-center pointer-events-auto">
+                  <Link
+                    to="/signup"
+                    className="px-12 py-4 bg-[#EAE0C8] text-[#0B132B] font-bold text-xl rounded-full hover:scale-105 hover:shadow-[0_0_30px_rgba(234,224,200,0.4)] transition-all duration-300 ease-out text-center"
+                  >
+                    Sign Up
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-12 py-4 border-2 border-[#EAE0C8] text-[#EAE0C8] font-bold text-xl rounded-full hover:bg-[#EAE0C8] hover:text-[#0B132B] hover:scale-105 hover:shadow-[0_0_30px_rgba(234,224,200,0.2)] transition-all duration-300 ease-out text-center"
+                  >
+                    Sign In
+                  </Link>
+                </div>
+              </div>
+              {/* Subtle scroll cue — also fades with the hero text */}
+              <div
+                className="absolute bottom-10 left-1/2 -translate-x-1/2 text-xs uppercase tracking-[0.4em] text-[#EAE0C8]/50 transition-opacity"
+                style={{ opacity: textOpacity }}
+              >
+                Scroll
+              </div>
+            </div>
+          );
+        }}
+      />
 
-      {/* HERO SECTION */}
-      <section className="relative min-h-screen flex flex-col justify-center items-center px-6 overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div
-          className="absolute inset-0 z-0 bg-cover bg-top bg-no-repeat"
-          style={{ backgroundImage: "url('/hero-bg.png')" }}
-        >
-          {/* Subtle gradient overlay to ensure text readability without hiding the image */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0B132B]/60 via-[#0B132B]/30 to-[#0B132B]"></div>
-        </div>
-
-        {/* Hero Content */}
-        <div className="relative z-10 flex flex-col items-center text-center max-w-5xl mx-auto w-full">
-          <h1 className="text-6xl md:text-8xl lg:text-9xl font-extrabold tracking-tighter text-[#eae0c8] mb-4 drop-shadow-2xl uppercase"
-            style={{ animation: 'fadeInUp 1s ease-out forwards' }}>
-            SafeCircles
-          </h1>
-          <h2 className="text-3xl md:text-5xl font-semibold text-[#FDF6E3] mb-8 drop-shadow-lg opacity-0"
-            style={{ animation: 'fadeInUp 1s ease-out 0.3s forwards' }}>
-            Walk safer. Together.
+      {/* 3. About */}
+      <section className="py-32 px-6 bg-[#0B132B]">
+        <div className="max-w-5xl mx-auto text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-extrabold text-[#EAE0C8] mb-6 tracking-tight">
+            Safety through verified companionship
           </h2>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-6 w-full sm:w-auto opacity-0"
-            style={{ animation: 'fadeInUp 1s ease-out 0.9s forwards' }}>
-            <Link
-              to="/signup"
-              className="w-full sm:w-auto px-12 py-4 bg-[#eae0c8] text-[#0B132B] font-bold text-xl rounded-full hover:scale-105 hover:shadow-[0_0_30px_rgba(234,224,200,0.4)] transition-all duration-300 ease-out text-center"
-            >
-              Sign Up
-            </Link>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto px-12 py-4 border-2 border-[#eae0c8] text-[#eae0c8] font-bold text-xl rounded-full hover:bg-[#eae0c8] hover:text-[#0B132B] hover:scale-105 hover:shadow-[0_0_30px_rgba(234,224,200,0.2)] transition-all duration-300 ease-out text-center"
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* PROBLEM SECTION */}
-      <section className="py-32 px-6 bg-[#0B132B] flex justify-center items-center text-center">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-3xl md:text-4xl lg:text-5xl font-light text-[#eae0c8] leading-tight py-12 px-4 opacity-90 border-y border-[#eae0c8]/20 transition-opacity duration-700 hover:opacity-100">
-            "A future where no woman fears walking home after 7 PM"
+          <p className="text-lg md:text-xl text-[#EAE0C8]/70 leading-relaxed">
+            SafeCircles helps women avoid unsafe solo travel by connecting them with
+            nearby verified users travelling along similar routes. Instead of
+            reacting after danger, SafeCircles focuses on prevention through
+            real-time group formation.
           </p>
         </div>
-      </section>
 
-      {/* SOLUTION HIGHLIGHT */}
-      <section className="py-24 px-6 bg-[#111A3A]">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 text-center">
-            {/* Point 1 */}
-            <div className="flex flex-col items-center group">
-              <div className="w-24 h-24 bg-[#eae0c8]/10 rounded-full flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:scale-110 group-hover:bg-[#eae0c8]/20 group-hover:shadow-[0_0_20px_rgba(234,224,200,0.15)] transition-all duration-500">
-                <svg className="w-10 h-10 text-[#eae0c8]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-[#eae0c8] mb-4 tracking-wide">Verified Users</h3>
-              <p className="text-[#9CA3AF] text-lg leading-relaxed">
-                Identity verified instantly. No fake profiles, just real people you can trust.
-              </p>
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {FEATURES.map((f) => (
+            <div
+              key={f.title}
+              className="rounded-2xl border border-white/5 bg-[#111A3A]/70 backdrop-blur-md p-6 shadow-lg hover:border-blue-400/30 hover:shadow-[0_0_24px_rgba(59,130,246,0.08)] transition-all duration-300"
+            >
+              <h3 className="text-lg font-bold text-[#EAE0C8] mb-3 tracking-wide">
+                {f.title}
+              </h3>
+              <p className="text-sm text-[#EAE0C8]/70 leading-relaxed">{f.body}</p>
             </div>
-
-            {/* Point 2 */}
-            <div className="flex flex-col items-center group">
-              <div className="w-24 h-24 bg-[#eae0c8]/10 rounded-full flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:scale-110 group-hover:bg-[#eae0c8]/20 group-hover:shadow-[0_0_20px_rgba(234,224,200,0.15)] transition-all duration-500">
-                <svg className="w-10 h-10 text-[#eae0c8]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-[#eae0c8] mb-4 tracking-wide">Real Time Groups</h3>
-              <p className="text-[#9CA3AF] text-lg leading-relaxed">
-                Connect and coordinate with trusted companions heading your way.
-              </p>
-            </div>
-
-            {/* Point 3 */}
-            <div className="flex flex-col items-center group">
-              <div className="w-24 h-24 bg-[#eae0c8]/10 rounded-full flex items-center justify-center mb-8 group-hover:-translate-y-2 group-hover:scale-110 group-hover:bg-[#eae0c8]/20 group-hover:shadow-[0_0_20px_rgba(234,224,200,0.15)] transition-all duration-500">
-                <svg className="w-10 h-10 text-[#eae0c8]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-              </div>
-              <h3 className="text-2xl lg:text-3xl font-bold text-[#eae0c8] mb-4 tracking-wide">Safer Journeys</h3>
-              <p className="text-[#9CA3AF] text-lg leading-relaxed">
-                Walk with peace of mind. Arrive at your destination safely, together.
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* Inline styles for custom animations to avoid modifying global CSS */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .smooth-scroll {
-          scroll-behavior: smooth;
-        }
-      `}} />
+      {/* 4. Story 3 — scframe3 */}
+      <ScrollFrameSequence
+        folderPath="/frames/scframe3"
+        lastFrame={240}
+        scrollHeight="300vh"
+      />
+
+      {/* 5. Footer */}
+      <footer className="bg-[#0B132B] border-t border-white/10 py-16 px-6">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-2xl md:text-3xl font-bold text-[#EAE0C8] mb-4 tracking-tight">
+            SafeCircles
+          </p>
+          <p className="text-base md:text-lg italic text-[#EAE0C8]/80 leading-relaxed mb-8">
+            "A future where no <span className="text-[#EAE0C8] font-semibold not-italic">WOMAN</span> fears walking home after 7 PM"
+          </p>
+          <p className="text-xs uppercase tracking-[0.3em] text-[#EAE0C8]/40">
+            Built by TeesMaarKhaCoders
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
