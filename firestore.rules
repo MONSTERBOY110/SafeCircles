@@ -2,9 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow all reads and writes for now - for testing/development
+    // Dev rules: any authenticated user can read/write.
+    // TODO: tighten before production (per-collection ownership checks).
     match /{document=**} {
-      allow read, write;
+      allow read, write: if request.auth != null;
     }
   }
 }
