@@ -26,7 +26,9 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             'mediapipe': ['@mediapipe/face_mesh'],
             'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            'leaflet': ['leaflet', 'react-leaflet']
+            'leaflet': ['leaflet', 'react-leaflet'],
+            'tfjs': ['@tensorflow/tfjs'],
+            'vad': ['@ricky0123/vad-web', 'onnxruntime-web']
           }
         }
       }
