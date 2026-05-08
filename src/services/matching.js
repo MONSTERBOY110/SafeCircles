@@ -88,34 +88,41 @@ export function listenToUserTrips(userId, callback) {
  * Checks if origin and destination are both geographically close
  */
 function calculatePathOverlap(trip1Coords, trip2Coords) {
+  // If either trip is missing coordinates, default to moderate overlap
   if (!trip1Coords?.origin || !trip1Coords?.dest || 
       !trip2Coords?.origin || !trip2Coords?.dest) {
-    return 0;
+    console.log('Missing coordinates for path overlap calculation, returning default score');
+    return 50; // Default moderate score if coordinates missing
   }
 
-  // Calculate distances between origins and destinations
-  const originDistance = calculateDistance(
-    trip1Coords.origin.lat, trip1Coords.origin.lng,
-    trip2Coords.origin.lat, trip2Coords.origin.lng
-  );
+  try {
+    // Calculate distances between origins and destinations
+    const originDistance = calculateDistance(
+      trip1Coords.origin.lat, trip1Coords.origin.lng,
+      trip2Coords.origin.lat, trip2Coords.origin.lng
+    );
 
-  const destDistance = calculateDistance(
-    trip1Coords.dest.lat, trip1Coords.dest.lng,
-    trip2Coords.dest.lat, trip2Coords.dest.lng
-  );
+    const destDistance = calculateDistance(
+      trip1Coords.dest.lat, trip1Coords.dest.lng,
+      trip2Coords.dest.lat, trip2Coords.dest.lng
+    );
 
-  // Both origin and destination should be within 5km for a good match
-  const originOverlap = originDistance <= 5;
-  const destOverlap = destDistance <= 5;
+    // Both origin and destination should be within 5km for a good match
+    const originOverlap = originDistance <= 5;
+    const destOverlap = destDistance <= 5;
 
-  // Return overlap score (0-100)
-  // Full match if both are within 5km, partial if only one is close
-  if (originOverlap && destOverlap) {
-    return 100 - (originDistance + destDistance); // Favor closer matches
-  } else if (originOverlap || destOverlap) {
-    return 30; // Partial overlap
+    // Return overlap score (0-100)
+    // Full match if both are within 5km, partial if only one is close
+    if (originOverlap && destOverlap) {
+      return 100 - (originDistance + destDistance); // Favor closer matches
+    } else if (originOverlap || destOverlap) {
+      return 60; // One endpoint matches - good enough
+    }
+    return 20; // Both outside 5km but in same geohash cluster - still worth considering
+  } catch (error) {
+    console.error('Error calculating path overlap:', error);
+    return 50; // Return default score on error
   }
-  return 0; // No overlap
 }
 
 /**
@@ -163,7 +170,6 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     const matches = [];
     const uniqueUserIds = new Set();
     const newOriginPrefix = newTripData.origin_geohash.substring(0, 4);
-    const newDestPrefix = newTripData.dest_geohash.substring(0, 4);
 
     // Prepare new trip coordinates for path overlap calculation
     const newTripCoords = {
@@ -187,23 +193,18 @@ export async function findAndMatchTrips(newTripData, newTripId) {
         continue;
       }
 
-      // Check origin geohash prefix match (primary filter)
+      // Check origin geohash prefix match (primary filter - required)
       const tripOriginPrefix = trip.origin_geohash.substring(0, 4);
       if (newOriginPrefix !== tripOriginPrefix) {
         continue;
       }
 
-      // Check destination geohash prefix match (secondary filter)
-      const tripDestPrefix = trip.dest_geohash.substring(0, 4);
-      if (newDestPrefix !== tripDestPrefix) {
-        console.log(`Trip ${trip.id} has different destination prefix`);
-        continue;
-      }
-
-      // Check departure window overlap
-      if (!checkDepartureWindowOverlap(newTripData.departure_window, trip.departure_window)) {
-        console.log(`Trip ${trip.id} has non-overlapping departure time`);
-        continue;
+      // Check departure window overlap (if both have times, they should overlap)
+      if (newTripData.departure_window?.start && trip.departure_window?.start) {
+        if (!checkDepartureWindowOverlap(newTripData.departure_window, trip.departure_window)) {
+          console.log(`Trip ${trip.id} has non-overlapping departure time`);
+          continue;
+        }
       }
 
       const userDoc = await getDoc(doc(db, 'users', trip.userId));
@@ -224,7 +225,7 @@ export async function findAndMatchTrips(newTripData, newTripId) {
         continue;
       }
 
-      // Calculate path overlap score
+      // Calculate path overlap score (this naturally handles destination matching)
       const tripCoords = {
         origin: trip.origin_coords,
         dest: trip.dest_coords,
