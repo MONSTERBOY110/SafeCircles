@@ -33,6 +33,10 @@ export default function Dashboard() {
   const [tripsLoading, setTripsLoading] = useState(true);
   const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
+  const [sourceSuggestions, setSourceSuggestions] = useState([]);
+  const [destinationSuggestions, setDestinationSuggestions] = useState([]);
+  const [selectedSource, setSelectedSource] = useState(null);
+  const [selectedDestination, setSelectedDestination] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
@@ -85,6 +89,90 @@ export default function Dashboard() {
     }
   }, []);
 
+  // Debounced Nominatim autocomplete — source.
+  useEffect(() => {
+    if (selectedSource && source === selectedSource.label) {
+      setSourceSuggestions([]);
+      return;
+    }
+    if (source.trim().length < 3) {
+      setSourceSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(source)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        const data = await res.json();
+        setSourceSuggestions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Nominatim source fetch failed:', err);
+        }
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [source, selectedSource]);
+
+  // Debounced Nominatim autocomplete — destination.
+  useEffect(() => {
+    if (selectedDestination && destination === selectedDestination.label) {
+      setDestinationSuggestions([]);
+      return;
+    }
+    if (destination.trim().length < 3) {
+      setDestinationSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(destination)}`;
+        const res = await fetch(url, { signal: controller.signal });
+        const data = await res.json();
+        setDestinationSuggestions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Nominatim destination fetch failed:', err);
+        }
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [destination, selectedDestination]);
+
+  const handleSourceChange = (value) => {
+    setSource(value);
+    if (selectedSource && value !== selectedSource.label) {
+      setSelectedSource(null);
+    }
+  };
+
+  const handleDestinationChange = (value) => {
+    setDestination(value);
+    if (selectedDestination && value !== selectedDestination.label) {
+      setSelectedDestination(null);
+    }
+  };
+
+  const handleSelectSource = (s) => {
+    setSelectedSource({ label: s.display_name, lat: Number(s.lat), lng: Number(s.lon) });
+    setSource(s.display_name);
+    setSourceSuggestions([]);
+  };
+
+  const handleSelectDestination = (s) => {
+    setSelectedDestination({ label: s.display_name, lat: Number(s.lat), lng: Number(s.lon) });
+    setDestination(s.display_name);
+    setDestinationSuggestions([]);
+  };
+
   const handleCreateTrip = async (e) => {
     e.preventDefault();
 
@@ -98,24 +186,20 @@ export default function Dashboard() {
       return;
     }
 
-    if (!source || !destination) {
-      toast.error('Please enter both origin and destination.');
-      return;
-    }
-
-    if (!userLocation) {
-      toast.error('Locating you... please wait a moment.');
+    if (!selectedSource || !selectedDestination) {
+      toast.error('Please select a location from suggestions');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const [originLat, originLng] = userLocation || [];
-      const destinationLat = typeof originLat === 'number' ? originLat + 0.02 : null;
-      const destinationLng = typeof originLng === 'number' ? originLng + 0.02 : null;
-      const safeSource = source?.trim();
-      const safeDestination = destination?.trim();
+      const originLat = selectedSource.lat;
+      const originLng = selectedSource.lng;
+      const destinationLat = selectedDestination.lat;
+      const destinationLng = selectedDestination.lng;
+      const safeSource = selectedSource.label;
+      const safeDestination = selectedDestination.label;
       const safeUserName = user?.displayName || 'User';
 
       if (
@@ -180,6 +264,10 @@ export default function Dashboard() {
 
       setSource('');
       setDestination('');
+      setSelectedSource(null);
+      setSelectedDestination(null);
+      setSourceSuggestions([]);
+      setDestinationSuggestions([]);
 
       if (matchResult?.success) {
         toast.success(`SafeCircle formed! ${matchResult.memberCount} members`);
@@ -266,28 +354,60 @@ export default function Dashboard() {
             <div className="relative flex flex-col gap-3">
               <div className="absolute left-[23px] top-[1.8rem] bottom-[1.8rem] w-[2px] bg-blue-500/20 rounded-full z-0"></div>
 
-              <div className="relative z-10 flex items-center gap-4 bg-[#0B132B]/60 p-2 rounded-2xl w-full border border-white/5 focus-within:border-[#EAE0C8]/20 transition-all">
-                <div className="w-4 h-4 ml-2 rounded-full bg-blue-400 shrink-0 shadow-[0_0_10px_rgba(96,165,250,0.5)] border-[3px] border-[#0B132B]"></div>
-                <input
-                  type="text"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  placeholder="Current Location"
-                  required
-                  className="bg-transparent border-none outline-none text-[#eae0c8] font-medium text-lg w-full placeholder:text-[#EAE0C8]/40"
-                />
+              <div className="relative z-30">
+                <div className="relative z-10 flex items-center gap-4 bg-[#0B132B]/60 p-2 rounded-2xl w-full border border-white/5 focus-within:border-[#EAE0C8]/20 transition-all">
+                  <div className="w-4 h-4 ml-2 rounded-full bg-blue-400 shrink-0 shadow-[0_0_10px_rgba(96,165,250,0.5)] border-[3px] border-[#0B132B]"></div>
+                  <input
+                    type="text"
+                    value={source}
+                    onChange={(e) => handleSourceChange(e.target.value)}
+                    placeholder="Current Location"
+                    required
+                    autoComplete="off"
+                    className="bg-transparent border-none outline-none text-[#eae0c8] font-medium text-lg w-full placeholder:text-[#EAE0C8]/40"
+                  />
+                </div>
+                {sourceSuggestions.length > 0 && (
+                  <ul className="absolute left-0 right-0 top-full mt-2 z-40 bg-[#0B132B]/90 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-2xl max-h-64 overflow-y-auto">
+                    {sourceSuggestions.map((s) => (
+                      <li
+                        key={s.place_id}
+                        onClick={() => handleSelectSource(s)}
+                        className="px-4 py-3 text-[#EAE0C8] text-sm cursor-pointer hover:bg-blue-500/20 border-b border-white/5 last:border-b-0"
+                      >
+                        {s.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              <div className="relative z-10 flex items-center gap-4 bg-[#0B132B]/60 p-2 rounded-2xl w-full border border-white/5 focus-within:border-[#EAE0C8]/20 transition-all">
-                <div className="w-4 h-4 ml-2 bg-blue-300 shrink-0 shadow-[0_0_10px_rgba(147,197,253,0.45)] border-[3px] border-[#0B132B] transform rotate-45"></div>
-                <input
-                  type="text"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="Where to?"
-                  required
-                  className="bg-transparent border-none outline-none text-[#eae0c8] font-bold text-lg w-full placeholder:text-[#EAE0C8]/40"
-                />
+              <div className="relative z-20">
+                <div className="relative z-10 flex items-center gap-4 bg-[#0B132B]/60 p-2 rounded-2xl w-full border border-white/5 focus-within:border-[#EAE0C8]/20 transition-all">
+                  <div className="w-4 h-4 ml-2 bg-blue-300 shrink-0 shadow-[0_0_10px_rgba(147,197,253,0.45)] border-[3px] border-[#0B132B] transform rotate-45"></div>
+                  <input
+                    type="text"
+                    value={destination}
+                    onChange={(e) => handleDestinationChange(e.target.value)}
+                    placeholder="Where to?"
+                    required
+                    autoComplete="off"
+                    className="bg-transparent border-none outline-none text-[#eae0c8] font-bold text-lg w-full placeholder:text-[#EAE0C8]/40"
+                  />
+                </div>
+                {destinationSuggestions.length > 0 && (
+                  <ul className="absolute left-0 right-0 top-full mt-2 z-40 bg-[#0B132B]/90 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-2xl max-h-64 overflow-y-auto">
+                    {destinationSuggestions.map((s) => (
+                      <li
+                        key={s.place_id}
+                        onClick={() => handleSelectDestination(s)}
+                        className="px-4 py-3 text-[#EAE0C8] text-sm cursor-pointer hover:bg-blue-500/20 border-b border-white/5 last:border-b-0"
+                      >
+                        {s.display_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
 

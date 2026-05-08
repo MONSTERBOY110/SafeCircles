@@ -1,6 +1,5 @@
 import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 
 export default function LiveMap({ center = [22.5561, 88.3629], members = [], zoom = 14 }) {
   return (

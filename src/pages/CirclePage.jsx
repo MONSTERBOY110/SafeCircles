@@ -3,9 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../services/firebase';
 import { getCircleMembers } from '../services/matching';
-import { 
-  collection, query, where, onSnapshot, orderBy, getDoc, doc, 
-  addDoc, serverTimestamp, writeBatch, updateDoc 
+import {
+  collection, query, where, onSnapshot, orderBy, getDoc, getDocs, doc,
+  addDoc, serverTimestamp, writeBatch, updateDoc, arrayUnion
 } from 'firebase/firestore';
 import { MapContainer, TileLayer, Marker, Polyline, Circle as LeafletCircle, useMap } from 'react-leaflet';
 import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2 } from 'lucide-react';
@@ -392,46 +392,67 @@ export default function CirclePage() {
     }
   };
 
-  // Complete trip
+  // Complete trip — only the CURRENT user's trip is marked completed.
+  // Circle flips to 'completed' only when every member has reached.
   const handleCompleteTrip = async () => {
+    if (!currentUser?.uid || !circleId) return;
     if (!window.confirm('Mark trip as completed?')) return;
 
     try {
-      const batch = writeBatch(db);
-
-      // 1. Update circle status
-      batch.update(doc(db, 'safe_circles', circleId), {
-        status: 'completed',
-        completedAt: serverTimestamp(),
-      });
-
-      // 2. Update user reputations
-      members.forEach((member) => {
-        batch.update(doc(db, 'users', member.uid), {
-          reputation_score: (member.reputation || 0) + 1,
-        });
-      });
-
-      // 3. Update trips
-      const tripsSnap = await Promise.all(
-        members.map(m => 
-          onSnapshot(
-            query(collection(db, 'trips'), where('circle_id', '==', circleId), where('user_id', '==', m.uid)),
-            (snap) => snap.docs.forEach(d => batch.update(d.ref, { status: 'completed' }))
-          )
+      // 1. Find this user's trip(s) in this circle.
+      const myTripsSnap = await getDocs(
+        query(
+          collection(db, 'trips'),
+          where('circle_id', '==', circleId),
+          where('userId', '==', currentUser.uid)
         )
       );
 
-      // 4. Create trip log
-      await addDoc(collection(db, 'trip_logs'), {
-        circleId,
-        completedAt: serverTimestamp(),
-        members: members.map(m => ({ uid: m.uid, name: m.name })),
+      const batch = writeBatch(db);
+
+      // 2. Mark only this user's trip(s) completed.
+      myTripsSnap.docs.forEach((d) => {
+        batch.update(d.ref, {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+        });
+      });
+
+      // 3. Record this user in the circle's reachedBy array.
+      batch.update(doc(db, 'safe_circles', circleId), {
+        reachedBy: arrayUnion(currentUser.uid),
+      });
+
+      // 4. Bump only this user's reputation.
+      const myReputation = members.find((m) => m.uid === currentUser.uid)?.reputation ?? 0;
+      batch.update(doc(db, 'users', currentUser.uid), {
+        reputation_score: myReputation + 1,
       });
 
       await batch.commit();
+
+      // 5. If this user is the last to reach, flip the whole circle to completed.
+      const circleSnap = await getDoc(doc(db, 'safe_circles', circleId));
+      const circleData = circleSnap.data();
+      const reachedAll =
+        Array.isArray(circleData?.reachedBy) &&
+        Array.isArray(circleData?.member_ids) &&
+        circleData.reachedBy.length >= circleData.member_ids.length;
+
+      if (reachedAll && circleData.status !== 'completed') {
+        await updateDoc(doc(db, 'safe_circles', circleId), {
+          status: 'completed',
+          completedAt: serverTimestamp(),
+        });
+        await addDoc(collection(db, 'trip_logs'), {
+          circleId,
+          completedAt: serverTimestamp(),
+          members: members.map((m) => ({ uid: m.uid, name: m.name })),
+        });
+      }
+
       toast.success('Trip marked as completed');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Complete trip error:', error);
       toast.error('Failed to complete trip');
@@ -690,13 +711,22 @@ export default function CirclePage() {
         </div>
 
         {/* Complete Trip Button */}
-        <button
-          onClick={handleCompleteTrip}
-          className="w-full bg-blue-500/30 hover:bg-blue-500/40 border border-blue-500/50 rounded-xl py-4 font-semibold text-[#eae0c8] transition flex items-center justify-center gap-2"
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          Mark as Reached Safely
-        </button>
+        {(() => {
+          const alreadyReached =
+            Array.isArray(circle?.reachedBy) &&
+            currentUser?.uid &&
+            circle.reachedBy.includes(currentUser.uid);
+          return (
+            <button
+              onClick={handleCompleteTrip}
+              disabled={alreadyReached}
+              className="w-full bg-blue-500/30 hover:bg-blue-500/40 border border-blue-500/50 rounded-xl py-4 font-semibold text-[#eae0c8] transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/30"
+            >
+              <CheckCircle2 className="w-5 h-5" />
+              {alreadyReached ? 'Already Marked Reached' : 'Mark as Reached Safely'}
+            </button>
+          );
+        })()}
       </main>
 
       {/* Fake Call Modal */}

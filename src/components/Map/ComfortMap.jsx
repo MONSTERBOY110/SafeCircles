@@ -1,6 +1,5 @@
 import React from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 
 const LEVEL_COLORS = {
   safe: '#22c55e',
