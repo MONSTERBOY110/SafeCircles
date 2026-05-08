@@ -80,6 +80,7 @@ export default function CirclePage() {
   const [isTracking, setIsTracking] = useState(false);
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [lastSafetyPing, setLastSafetyPing] = useState(null);
   const [userData, setUserData] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -396,7 +397,7 @@ export default function CirclePage() {
   // Circle flips to 'completed' only when every member has reached.
   const handleCompleteTrip = async () => {
     if (!currentUser?.uid || !circleId) return;
-    if (!window.confirm('Mark trip as completed?')) return;
+    setShowCompleteConfirm(false);
 
     try {
       // 1. Find this user's trip(s) in this circle.
@@ -718,7 +719,7 @@ export default function CirclePage() {
             circle.reachedBy.includes(currentUser.uid);
           return (
             <button
-              onClick={handleCompleteTrip}
+              onClick={() => setShowCompleteConfirm(true)}
               disabled={alreadyReached}
               className="w-full bg-blue-500/30 hover:bg-blue-500/40 border border-blue-500/50 rounded-xl py-4 font-semibold text-[#eae0c8] transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/30"
             >
@@ -769,6 +770,37 @@ export default function CirclePage() {
                 className="w-full bg-[#0B132B]/60 hover:bg-[#0B132B] border border-white/5 rounded-xl py-3 text-[#eae0c8] font-medium transition"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Reached Safely Confirmation Modal */}
+      {showCompleteConfirm && (
+        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#111A3A]/90 backdrop-blur-md border border-white/5 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-[#eae0c8] mb-2 flex items-center gap-2">
+              <CheckCircle2 className="w-6 h-6 text-blue-400" />
+              Mark Reached Safely?
+            </h3>
+            <p className="text-[#eae0c8]/70 text-sm mb-6">
+              This confirms you've reached your destination. Other circle members
+              can still complete their own trips independently.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCompleteConfirm(false)}
+                className="flex-1 bg-[#0B132B]/60 hover:bg-[#0B132B] border border-white/5 rounded-xl py-3 text-[#eae0c8] font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCompleteTrip}
+                className="flex-1 bg-blue-500/30 hover:bg-blue-500/40 border border-blue-500/50 rounded-xl py-3 text-[#eae0c8] font-semibold transition flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                Confirm
               </button>
             </div>
           </div>

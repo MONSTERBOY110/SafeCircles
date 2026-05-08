@@ -106,6 +106,14 @@ export default function TripsPage() {
 
   const pendingTrips = trips.filter((t) => t.status === 'pending');
   const matchedTrips = trips.filter((t) => t.status === 'matched');
+  const completedTrips = trips
+    .filter((t) => t.status === 'completed')
+    .sort((a, b) => {
+      const aTs = a.completedAt?.toMillis?.() ?? (a.completedAt?.seconds ?? 0) * 1000;
+      const bTs = b.completedAt?.toMillis?.() ?? (b.completedAt?.seconds ?? 0) * 1000;
+      return bTs - aTs;
+    })
+    .slice(0, 5);
   const pendingTripKey = pendingTrips.map((trip) => trip.id).sort().join(',');
 
   useEffect(() => {
@@ -360,6 +368,39 @@ export default function TripsPage() {
                       </div>
                     );
                   })}
+                </section>
+              )}
+
+              {completedTrips.length > 0 && (
+                <section className="space-y-4">
+                  <h2 className="text-sm font-bold text-[#EAE0C8]/60 uppercase tracking-[0.2em] mt-6 mb-2">
+                    Past Trips
+                  </h2>
+                  {completedTrips.map((trip) => (
+                    <div
+                      key={trip.id}
+                      className="backdrop-blur-xl bg-[#111A3A]/50 border border-white/5 rounded-[1.5rem] p-5 shadow-lg opacity-90"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[#EAE0C8] text-sm font-semibold truncate">
+                            {trip.origin_landmark || trip.origin}
+                          </p>
+                          <p className="text-[#EAE0C8]/50 text-xs mt-1 truncate">
+                            <span className="text-[#EAE0C8]/30">to</span> {trip.destination_landmark || trip.destination}
+                          </p>
+                        </div>
+                        <span className="shrink-0 inline-flex items-center gap-1.5 bg-green-500/10 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-green-500/20 uppercase tracking-wider">
+                          Completed
+                        </span>
+                      </div>
+                      {trip.completedAt && (
+                        <p className="text-[#EAE0C8]/40 text-xs mt-3">
+                          {formatDate(trip.completedAt)} · {formatTime(trip.completedAt)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </section>
               )}
             </div>

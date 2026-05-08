@@ -251,38 +251,52 @@ trips/{tripId} = {
 
 ---
 
-## 5.4 Location Suggestions
+## 5.4 Location Suggestions (Ola/Uber Style)
 
 ### Description
 
-Dashboard source and destination inputs should provide location suggestions similar to Google Maps.
+Dashboard source and destination inputs behave like Ola/Uber: tapping either input expands a full-panel suggestion list in place of the bottom map. Pinned shortcuts at the top, recent picks below, and live Nominatim results when typing.
 
 ### Technology
 
-* OpenStreetMap Nominatim API
-* Leaflet
-* Geohash
+* OpenStreetMap Nominatim API (search + reverse geocode)
+* `localStorage` for recent picks
+* Leaflet + react-leaflet for the GPS map
+* Geohash for trip storage
 
 ### Behaviour
 
-* User types at least 3 characters.
-* Suggestions appear below input.
-* User selects a suggestion.
-* Selected suggestion stores label, latitude, and longitude.
-* Trip creation uses selected coordinates.
+* Map is visible by default at the bottom of the Dashboard.
+* Tap source or destination input → bottom map disappears, a suggestion panel appears in the same slot.
+* Panel sections (top to bottom):
+  1. **Use Current Location** — pinned. Reverse-geocodes device GPS via Nominatim `/reverse` and fills the active input.
+  2. **Recent** — up to 5 most recent picks from `localStorage` (only when query length < 3).
+  3. **Suggestions** — live Nominatim search results (≥3 chars typed, 400ms debounce).
+* Selecting any item fills the input, stores `{label, lat, lng}` for trip creation, and closes the panel (map returns).
+* Close (X) button or selection both dismiss the panel.
+* Trip creation uses selected coordinates and geohashes them via `ngeohash.encode(..., 7)`.
 
-### Suggested API
+### APIs
 
 ```txt
-https://nominatim.openstreetmap.org/search?format=json&q=<query>&limit=5
+Search:  https://nominatim.openstreetmap.org/search?format=json&limit=5&q=<query>
+Reverse: https://nominatim.openstreetmap.org/reverse?format=json&lat=<lat>&lon=<lng>&zoom=18
 ```
+
+### GPS Map
+
+* `navigator.geolocation.watchPosition` keeps `userLocation` fresh (cleaned up on unmount).
+* Marker is a blue `<CircleMarker>` (pixel-radius dot with a softer 120m `<Circle>` ring) — no Leaflet icon-asset dependency.
+* Recenter button (top-right of the map) re-focuses the map on the user.
 
 ### Acceptance Criteria
 
-* Source suggestions appear while typing.
-* Destination suggestions appear while typing.
-* User must select valid suggestions before creating trip.
-* Coordinates are saved with trip document.
+* Tapping source/destination expands the panel and hides the map.
+* "Use Current Location" works and fills with a real address.
+* Recent picks persist across reloads.
+* Selecting any item closes the panel and stores valid lat/lng.
+* User must select from the panel before submitting (existing guard).
+* Bottom map shows a visible blue GPS dot that tracks the user.
 
 ---
 
