@@ -86,7 +86,7 @@ Dashboard's trip-create handler navigates to `/trips` after `findAndMatchTrips` 
 ### Verification flow
 
 `src/components/Verification/VerificationFlow.jsx` orchestrates three steps that must all pass before a user is matchable:
-1. `FaceDetection.jsx` — MediaPipe Face Mesh loaded via CDN; thresholds in `utils/faceValidation.js` and `utils/constants.js` (`VERIFICATION.FACE_CENTER_MIN/MAX`).
+1. `FaceDetection.jsx` — MediaPipe Face Mesh loaded **same-origin** from `public/mediapipe/face_mesh/` (committed runtime assets, ~16MB total). Was previously loaded from jsdelivr's CDN, but the SIMD WASM `.data` bundle threw `Cannot read properties of undefined (reading 'buffer')` inside Emscripten on some browser/version combos. Same-origin assets sidestep the issue. `VoiceVerification.jsx` uses the same path. Thresholds in `utils/faceValidation.js` and `utils/constants.js` (`VERIFICATION.FACE_CENTER_MIN/MAX`).
 2. `HeadMovement.jsx` — liveness via head rotations.
 3. `VoiceVerification.jsx` — Web Audio API + autocorrelation pitch detection (`utils/pitchDetection.js`), with optional lip-sync check (`utils/lipSyncDetection.js`). Sentences come from `VOICE_PROMPTS` in `utils/constants.js`.
 
