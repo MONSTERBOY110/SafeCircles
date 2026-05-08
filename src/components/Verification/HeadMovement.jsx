@@ -202,8 +202,8 @@ export default function HeadMovement({ onHeadMovementComplete }) {
 
   return (
     <div className="text-center">
-      <h3 className="text-2xl font-bold mb-1 text-gray-800">Step 2: Liveness Check</h3>
-      <p className="text-gray-500 mb-4 text-sm">Follow the prompts to prove you're a live person</p>
+      <h3 className="mb-1 text-2xl font-bold text-[#EAE0C8]">Step 2: Liveness Check</h3>
+      <p className="mb-4 text-sm text-[#EAE0C8]/60">Follow the prompts to prove you're a live person</p>
 
       {/* Video + canvas */}
       <video ref={videoRef} style={{ display: 'none' }} width="640" height="480" muted playsInline />
@@ -218,24 +218,24 @@ export default function HeadMovement({ onHeadMovementComplete }) {
       {/* Current challenge prompt */}
       {!isDone && (
         <div className="mb-4 space-y-2">
-          <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-lg shadow-md transition-colors ${passing ? 'bg-green-500 text-white' : 'bg-blue-600 text-white animate-pulse'
+          <div className={`inline-flex items-center gap-3 rounded-2xl px-6 py-3 text-lg font-bold shadow-md transition-colors ${passing ? 'bg-green-500 text-[#EAE0C8]' : 'bg-blue-600 text-[#EAE0C8] animate-pulse'
             }`}>
             <span className="text-2xl">{activeStep.emoji}</span>
             {activeStep.label}
           </div>
-          <p className="text-gray-400 text-sm">{activeStep.hint}</p>
+          <p className="text-sm text-[#EAE0C8]/50">{activeStep.hint}</p>
 
           {/* Progress bar — direction for left/right, smile for smile */}
           <div className="max-w-xs mx-auto space-y-1">
             {(activeStep.id === 'left' || activeStep.id === 'right') && (
               <>
-                <div className="flex justify-between text-xs text-gray-400 font-medium">
+                <div className="flex justify-between text-xs font-medium text-[#EAE0C8]/50">
                   <span className={activeStep.id === 'left' ? 'text-blue-600' : ''}>← LEFT</span>
-                  <span className="text-gray-400">Head Direction</span>
+                  <span className="text-[#EAE0C8]/50">Head Direction</span>
                   <span className={activeStep.id === 'right' ? 'text-blue-600' : ''}>RIGHT →</span>
                 </div>
-                <div className="relative h-3 bg-gray-100 rounded-full border border-gray-200 overflow-hidden">
-                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-400" />
+                <div className="relative h-3 overflow-hidden rounded-full border border-white/5 bg-[#111A3A]">
+                  <div className="absolute bottom-0 left-1/2 top-0 w-px bg-blue-500/20" />
                   {activeStep.id === 'left' ? (
                     <div className="absolute right-1/2 top-0 bottom-0 rounded-l-full transition-all duration-75"
                       style={{ width: `${dirProgress / 2}%`, background: dirProgress > 60 ? '#22c55e' : '#3b82f6' }} />
@@ -244,7 +244,7 @@ export default function HeadMovement({ onHeadMovementComplete }) {
                       style={{ width: `${dirProgress / 2}%`, background: dirProgress > 60 ? '#22c55e' : '#3b82f6' }} />
                   )}
                 </div>
-                <p className={`text-xs font-medium ${dirProgress >= 100 ? 'text-green-600' : dirProgress > 60 ? 'text-blue-600' : 'text-gray-500'}`}>
+                <p className={`text-xs font-medium ${dirProgress >= 100 ? 'text-green-400' : dirProgress > 60 ? 'text-blue-300' : 'text-[#EAE0C8]/50'}`}>
                   {dirProgress >= 100 ? '✅ Hold still...' : dirProgress > 60 ? 'Almost there! Keep turning' : `Turn ${activeStep.id} — ${Math.round(dirProgress)}% there`}
                 </p>
               </>
@@ -252,15 +252,15 @@ export default function HeadMovement({ onHeadMovementComplete }) {
 
             {activeStep.id === 'smile' && (
               <>
-                <div className="flex justify-between text-xs text-gray-400 font-medium">
+                <div className="flex justify-between text-xs font-medium text-[#EAE0C8]/50">
                   <span>Smile strength</span>
-                  <span className={smile > 0.35 ? 'text-green-600' : 'text-blue-600'}>{Math.round(smile * 100)}%</span>
+                  <span className={smile > 0.35 ? 'text-green-400' : 'text-blue-300'}>{Math.round(smile * 100)}%</span>
                 </div>
-                <div className="h-3 bg-gray-100 rounded-full border border-gray-200 overflow-hidden">
+                <div className="h-3 overflow-hidden rounded-full border border-white/5 bg-[#111A3A]">
                   <div className="h-3 rounded-full transition-all duration-75"
-                    style={{ width: `${Math.min(100, smile * 100)}%`, background: smile > 0.35 ? '#22c55e' : smile > 0.2 ? '#3b82f6' : '#94a3b8' }} />
+                    style={{ width: `${Math.min(100, smile * 100)}%`, background: smile > 0.35 ? '#22c55e' : '#3b82f6' }} />
                 </div>
-                <p className={`text-xs font-medium ${smile > 0.35 ? 'text-green-600' : smile > 0.2 ? 'text-blue-600' : 'text-gray-500'}`}>
+                <p className={`text-xs font-medium ${smile > 0.35 ? 'text-green-400' : smile > 0.2 ? 'text-blue-300' : 'text-[#EAE0C8]/50'}`}>
                   {smile > 0.35 ? '✅ Hold that smile!' : smile > 0.2 ? 'Show more teeth!' : 'Smile naturally 😊'}
                 </p>
               </>
@@ -268,9 +268,9 @@ export default function HeadMovement({ onHeadMovementComplete }) {
 
             {/* Hold bar */}
             {holdPct > 0 && (
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 overflow-hidden rounded-full bg-[#111A3A]/70">
                 <div className="h-2 rounded-full transition-all duration-75"
-                  style={{ width: `${holdPct}%`, background: holdPct === 100 ? '#22c55e' : '#6366f1' }} />
+                  style={{ width: `${holdPct}%`, background: holdPct === 100 ? '#22c55e' : '#3b82f6' }} />
               </div>
             )}
           </div>
@@ -283,9 +283,9 @@ export default function HeadMovement({ onHeadMovementComplete }) {
           const done = completed.includes(s.id);
           const active = !isDone && currentStep === i;
           return (
-            <div key={s.id} className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${done ? 'bg-green-50 text-green-700 border-green-400' :
-                active ? 'bg-blue-50 text-blue-700 border-blue-400' :
-                  'bg-gray-50 text-gray-400 border-gray-200'
+            <div key={s.id} className={`px-4 py-2 rounded-full text-sm font-semibold border-2 transition-all ${done ? 'bg-green-500/10 text-green-300 border-green-400' :
+                active ? 'bg-blue-500/10 text-blue-300 border-blue-400' :
+                  'border-white/5 bg-[#111A3A] text-[#EAE0C8]/50'
               }`}>
               {done ? '✅' : active ? s.emoji : '⏳'} {s.label}
             </div>
@@ -295,15 +295,15 @@ export default function HeadMovement({ onHeadMovementComplete }) {
 
       {/* Live debug */}
       {!isDone && (
-        <p className="text-xs text-gray-400">
-          Yaw: <b className="text-gray-600">{Math.round(yaw)}°</b>
+        <p className="text-xs text-[#EAE0C8]/50">
+          Yaw: <b className="text-[#EAE0C8]/70">{Math.round(yaw)}°</b>
           {' · '}
-          Smile: <b className="text-gray-600">{Math.round(smile * 100)}%</b>
+          Smile: <b className="text-[#EAE0C8]/70">{Math.round(smile * 100)}%</b>
         </p>
       )}
 
       {isDone && (
-        <p className="text-green-600 font-bold text-lg mt-2 animate-bounce">
+        <p className="text-green-400 font-bold text-lg mt-2 animate-bounce">
           ✅ Liveness confirmed! Moving to voice check...
         </p>
       )}

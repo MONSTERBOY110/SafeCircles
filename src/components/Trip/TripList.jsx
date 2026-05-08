@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, getDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../../services/firebase';
 import { deleteTrip, getCircleMembers } from '../../services/matching';
 import { Link } from 'react-router-dom';
@@ -25,21 +25,17 @@ export default function TripList() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const tripsData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const tripsData = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setTrips(tripsData);
         setLoading(false);
-        
-        // Fetch members for matched/active trips
-        tripsData.forEach(trip => {
+
+        tripsData.forEach((trip) => {
           if ((trip.status === 'matched' || trip.status === 'active') && trip.circle_id) {
             fetchMembers(trip.id, trip.circle_id);
           }
         });
       },
-      (error) => {
-        console.error('❌ Trips fetch error:', error);
-        setLoading(false);
-      }
+      () => setLoading(false)
     );
 
     return unsub;
@@ -48,24 +44,21 @@ export default function TripList() {
   const fetchMembers = async (tripId, circleId) => {
     try {
       const membersList = await getCircleMembers(circleId);
-      setMembers(prev => ({ ...prev, [tripId]: membersList }));
+      setMembers((prev) => ({ ...prev, [tripId]: membersList }));
     } catch (error) {
-      console.error('❌ Error fetching members:', error);
+      console.error('Error fetching members:', error);
     }
   };
 
   const handleDeleteTrip = async (tripId) => {
-    if (!window.confirm('Are you sure you want to delete this trip?')) {
-      return;
-    }
+    if (!window.confirm('Are you sure you want to delete this trip?')) return;
 
     setDeleting(tripId);
     try {
       await deleteTrip(tripId);
       toast.success('Trip deleted successfully');
-      setTrips(trips.filter(t => t.id !== tripId));
+      setTrips(trips.filter((t) => t.id !== tripId));
     } catch (error) {
-      console.error('❌ Delete error:', error);
       toast.error(error.message || 'Failed to delete trip');
     } finally {
       setDeleting(null);
@@ -75,43 +68,42 @@ export default function TripList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <p className="text-gray-500 ml-3">Loading trips...</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500"></div>
+        <p className="ml-3 text-[#EAE0C8]/50">Loading trips...</p>
       </div>
     );
   }
 
   if (trips.length === 0) {
     return (
-      <div className="text-center py-12 bg-gray-50 rounded-xl">
-        <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-600 font-medium">No active trips</p>
-        <p className="text-gray-500 text-sm mt-1">Create one to join a SafeCircle!</p>
+      <div className="rounded-xl border border-white/5 bg-[#111A3A]/70 py-12 text-center">
+        <AlertCircle className="mx-auto mb-3 h-12 w-12 text-[#EAE0C8]/50" />
+        <p className="font-medium text-[#EAE0C8]/70">No active trips</p>
+        <p className="mt-1 text-sm text-[#EAE0C8]/50">Create one to join a SafeCircle.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {trips.map(trip => (
-        <div 
-          key={trip.id} 
-          className="border border-gray-200 rounded-xl p-5 bg-white hover:shadow-lg transition-all duration-200"
+      {trips.map((trip) => (
+        <div
+          key={trip.id}
+          className="rounded-xl border border-white/5 bg-[#111A3A]/70 p-5 transition-all duration-200 hover:shadow-lg"
         >
-          {/* Trip Header */}
-          <div className="flex justify-between items-start mb-4">
+          <div className="mb-4 flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-gray-800">
-                  {trip.origin_landmark} → {trip.destination_landmark}
+              <div className="mb-2 flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-400" />
+                <h3 className="font-bold text-[#EAE0C8]">
+                  {trip.origin_landmark} to {trip.destination_landmark}
                 </h3>
               </div>
-              
-              <div className="flex items-center gap-4 text-sm text-gray-600">
+
+              <div className="flex items-center gap-4 text-sm text-[#EAE0C8]/60">
                 {trip.departure_window?.start && (
                   <div className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
+                    <Clock className="h-4 w-4" />
                     <span>
                       {new Date(trip.departure_window.start).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -120,19 +112,18 @@ export default function TripList() {
                     </span>
                   </div>
                 )}
-                
-                <span className={`px-3 py-1 rounded-full font-semibold text-xs ${
-                  trip.status === 'pending' 
-                    ? 'bg-yellow-100 text-yellow-800' 
+
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${trip.status === 'pending'
+                  ? 'bg-blue-500/10 text-blue-300'
+                  : trip.status === 'matched'
+                    ? 'bg-green-500/10 text-green-300'
+                    : 'bg-blue-500/10 text-blue-300'
+                  }`}>
+                  {trip.status === 'pending'
+                    ? 'Searching'
                     : trip.status === 'matched'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {trip.status === 'pending' 
-                    ? '⏳ Searching' 
-                    : trip.status === 'matched'
-                    ? '✅ Circle Ready'
-                    : '🛣️ Active'}
+                      ? 'Circle Ready'
+                      : 'Active'}
                 </span>
               </div>
             </div>
@@ -141,44 +132,43 @@ export default function TripList() {
               <button
                 onClick={() => handleDeleteTrip(trip.id)}
                 disabled={deleting === trip.id}
-                className="ml-4 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                className="ml-4 rounded-lg p-2 text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
                 title="Delete trip"
               >
                 {deleting === trip.id ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
+                  <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-red-400"></div>
                 ) : (
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="h-5 w-5" />
                 )}
               </button>
             )}
           </div>
 
-          {/* Circle Info */}
           {(trip.status === 'matched' || trip.status === 'active') && members[trip.id] && (
-            <div className="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-5 h-5 text-blue-600" />
-                <span className="font-semibold text-blue-900">
+            <div className="mb-4 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-400" />
+                <span className="font-semibold text-[#EAE0C8]">
                   {members[trip.id].length} member{members[trip.id].length !== 1 ? 's' : ''}
                 </span>
               </div>
-              
+
               <div className="space-y-2">
                 {members[trip.id].map((member, index) => (
                   <div key={member.uid + index} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                      <span className="text-gray-800">{member.name}</span>
+                      <div className="h-2 w-2 rounded-full bg-blue-400"></div>
+                      <span className="text-[#EAE0C8]">{member.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {member.verified && (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                        <span className="rounded bg-green-500/10 px-2 py-1 text-xs text-green-300">
                           Verified
                         </span>
                       )}
                       {member.reputation > 0 && (
-                        <span className="text-xs text-gray-600">
-                          ⭐ {member.reputation.toFixed(1)}
+                        <span className="text-xs text-[#EAE0C8]/60">
+                          {member.reputation.toFixed(1)}
                         </span>
                       )}
                     </div>
@@ -188,19 +178,18 @@ export default function TripList() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex gap-2">
             {trip.circle_id && (trip.status === 'matched' || trip.status === 'active') && (
-              <Link 
-                to={`/circle/${trip.circle_id}`} 
-                className="flex-1 btn-primary text-center py-2 text-sm font-medium rounded-lg hover:opacity-90 transition"
+              <Link
+                to={`/circle/${trip.circle_id}`}
+                className="btn-primary flex-1 rounded-lg py-2 text-center text-sm font-medium transition hover:opacity-90"
               >
-                View Circle →
+                View Circle
               </Link>
             )}
-            
+
             {trip.status === 'pending' && (
-              <div className="flex-1 bg-gray-100 text-gray-600 text-center py-2 text-sm font-medium rounded-lg">
+              <div className="flex-1 rounded-lg bg-[#0B132B]/60 py-2 text-center text-sm font-medium text-[#EAE0C8]/60">
                 Waiting for matches...
               </div>
             )}

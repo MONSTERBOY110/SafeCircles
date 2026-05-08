@@ -112,7 +112,7 @@ export default function FaceDetection({ onFaceDetected }) {
               setStatus('scanning');
               setStatusMessage(message || 'Adjust your position');
 
-              ctx.strokeStyle = '#f59e0b';
+              ctx.strokeStyle = '#3b82f6';
               ctx.lineWidth = 3;
               ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
             }
@@ -121,7 +121,7 @@ export default function FaceDetection({ onFaceDetected }) {
             landmarks.forEach((pt) => {
               ctx.beginPath();
               ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 1.2, 0, 2 * Math.PI);
-              ctx.fillStyle = isValid ? '#3b82f6' : '#94a3b8';
+              ctx.fillStyle = isValid ? '#3b82f6' : 'rgba(234,224,200,0.45)';
               ctx.fill();
             });
           } else {
@@ -163,25 +163,27 @@ export default function FaceDetection({ onFaceDetected }) {
   }, [status === 'loading']);
 
   const statusColors = {
-    init: 'bg-gray-100 text-gray-600',
-    loading: 'bg-blue-50 text-blue-700',
-    scanning: holdProgress > 0 ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700',
-    detected: 'bg-green-100 text-green-800',
-    error: 'bg-red-50 text-red-700',
+    init: 'border border-white/5 bg-[#111A3A] text-[#EAE0C8]/70',
+    loading: 'border border-blue-500/20 bg-blue-500/10 text-blue-300',
+    scanning: holdProgress > 0
+      ? 'border border-green-500/20 bg-green-500/10 text-green-300'
+      : 'border border-blue-500/20 bg-blue-500/10 text-blue-300',
+    detected: 'border border-green-500/20 bg-green-500/10 text-green-300',
+    error: 'border border-red-500/20 bg-red-500/10 text-red-300',
   };
 
   const borderColors = {
-    init: 'border-gray-200',
+    init: 'border-white/5',
     loading: 'border-blue-300',
-    scanning: holdProgress > 0 ? 'border-green-400' : 'border-yellow-400',
+    scanning: holdProgress > 0 ? 'border-green-400' : 'border-blue-400',
     detected: 'border-green-500',
     error: 'border-red-400',
   };
 
   return (
     <div className="text-center">
-      <h3 className="text-2xl font-bold mb-1 text-gray-800">Step 1: Face Detection</h3>
-      <p className="text-gray-500 mb-5 text-sm">
+      <h3 className="mb-1 text-2xl font-bold text-[#EAE0C8]">Step 1: Face Detection</h3>
+      <p className="mb-5 text-sm text-[#EAE0C8]/60">
         MediaPipe tracks 468 facial landmarks to confirm you're a live person
       </p>
 
@@ -190,11 +192,11 @@ export default function FaceDetection({ onFaceDetected }) {
         <video ref={videoRef} style={{ display: 'none' }} width="640" height="480" muted playsInline />
 
         {status === 'loading' ? (
-          <div className="w-full flex flex-col items-center justify-center border-4 border-blue-300 rounded-xl bg-gray-900"
+          <div className="flex w-full flex-col items-center justify-center rounded-xl border-4 border-blue-300 bg-[#0B132B]"
             style={{ width: 480, height: 320 }}>
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-300 border-t-blue-600 mb-4" />
             <p className="text-blue-300 text-sm font-medium">Initializing MediaPipe...</p>
-            <p className="text-gray-500 text-xs mt-1">Loading AI model from CDN</p>
+            <p className="mt-1 text-xs text-[#EAE0C8]/50">Loading AI model from CDN</p>
           </div>
         ) : (
           <canvas
@@ -210,11 +212,11 @@ export default function FaceDetection({ onFaceDetected }) {
       {/* Hold progress bar */}
       {(status === 'scanning' || status === 'detected') && (
         <div className="max-w-xs mx-auto mb-3">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <div className="mb-1 flex justify-between text-xs text-[#EAE0C8]/50">
             <span>Hold still</span>
             <span>{holdProgress}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div className="h-2.5 w-full rounded-full bg-[#111A3A]/70">
             <div
               className="h-2.5 rounded-full transition-all duration-100"
               style={{
@@ -228,7 +230,7 @@ export default function FaceDetection({ onFaceDetected }) {
 
       {/* Status banner */}
       {status !== 'loading' && (
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${statusColors[status]} transition-all duration-300`}>
+        <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${statusColors[status]}`}>
           {status === 'error' && <span>⚠️</span>}
           {status === 'detected' && <span className="animate-pulse">✅</span>}
           {status === 'scanning' && holdProgress === 0 && <span>🔍</span>}
@@ -239,20 +241,20 @@ export default function FaceDetection({ onFaceDetected }) {
 
       {/* Confidence score (debug info) */}
       {status === 'scanning' && confidence > 0 && (
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="mt-2 text-xs text-[#EAE0C8]/50">
           Confidence: {Math.round(confidence * 100)}%
         </p>
       )}
 
       {/* Lighting warning */}
       {lightingWarning && (
-        <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-orange-50 text-orange-700">
+        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300">
           💡 {lightingWarning}
         </div>
       )}
 
       {status === 'detected' && (
-        <p className="text-green-600 mt-3 font-semibold animate-pulse text-sm">
+        <p className="mt-3 text-sm font-semibold text-green-400 animate-pulse">
           Moving to next step...
         </p>
       )}

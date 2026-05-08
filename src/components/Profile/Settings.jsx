@@ -20,7 +20,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="bg-[#0B132B]/60 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl p-6 max-w-lg mx-auto">
+    <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl shadow-xl p-6 max-w-lg mx-auto">
       <h3 className="text-xl font-bold text-[#eae0c8] mb-5 uppercase tracking-widest text-sm">Settings</h3>
 
       <div className="space-y-1">
@@ -40,7 +40,7 @@ export default function Settings() {
           <span className="text-[#eae0c8]/80 font-medium flex items-center gap-2.5">
             <ShieldCheck className="w-4 h-4 text-[#eae0c8]/40" /> Privacy Mode
           </span>
-          <span className="text-purple-400 text-xs font-bold uppercase tracking-wider bg-purple-500/10 px-2 py-1 rounded-md border border-purple-500/20">Geohash-rounded</span>
+          <span className="text-blue-400 text-xs font-bold uppercase tracking-wider bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20">Geohash-rounded</span>
         </div>
       </div>
 

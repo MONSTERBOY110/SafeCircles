@@ -26,7 +26,7 @@ export default function CircleChat({ circleId }) {
       limit(50)
     );
     const unsub = onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setMessages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     });
     return unsub;
@@ -53,20 +53,19 @@ export default function CircleChat({ circleId }) {
 
   return (
     <div className="flex flex-col" style={{ height: 360 }}>
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4">
+      <div className="mb-4 flex-1 space-y-3 overflow-y-auto pr-2">
         {messages.length === 0 && (
-          <p className="text-gray-400 text-center text-sm mt-10">No messages yet. Say hi! 👋</p>
+          <p className="mt-10 text-center text-sm text-[#EAE0C8]/50">No messages yet. Say hi.</p>
         )}
-        {messages.map(msg => {
+        {messages.map((msg) => {
           const isMe = msg.sender_id === user?.uid;
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                {!isMe && <p className="text-xs font-semibold mb-1 text-gray-500">{msg.sender_name}</p>}
+              <div className={`max-w-xs rounded-2xl px-4 py-2 text-sm ${isMe ? 'bg-blue-600 text-[#EAE0C8]' : 'bg-[#111A3A] text-[#EAE0C8] border border-white/5'}`}>
+                {!isMe && <p className="mb-1 text-xs font-semibold text-[#EAE0C8]/50">{msg.sender_name}</p>}
                 <p>{msg.text}</p>
                 {msg.created_at && (
-                  <p className={`text-xs mt-1 ${isMe ? 'text-blue-200' : 'text-gray-400'}`}>
+                  <p className={`mt-1 text-xs ${isMe ? 'text-blue-200' : 'text-[#EAE0C8]/40'}`}>
                     {timeAgo(msg.created_at)}
                   </p>
                 )}
@@ -77,14 +76,13 @@ export default function CircleChat({ circleId }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <form onSubmit={handleSend} className="flex gap-2">
         <input
           type="text"
           value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
+          onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 input-field text-sm py-2"
+          className="input-field flex-1 py-2 text-sm"
           maxLength={300}
         />
         <button

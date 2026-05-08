@@ -5,8 +5,8 @@ import { Trophy } from 'lucide-react';
 export default function ReputationScore({ score, trips }) {
   const getTier = (s) => {
     if (s >= REPUTATION.TRUSTED) return { label: 'Trusted', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', bar: 'bg-blue-500' };
-    if (s >= REPUTATION.EXPERIENCED) return { label: 'Experienced', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20', bar: 'bg-purple-500' };
-    return { label: 'New Member', color: 'text-[#eae0c8]/60', bg: 'bg-white/5', border: 'border-white/10', bar: 'bg-blue-500' };
+    if (s >= REPUTATION.EXPERIENCED) return { label: 'Experienced', color: 'text-blue-300', bg: 'bg-blue-500/10', border: 'border-blue-500/20', bar: 'bg-blue-400' };
+    return { label: 'New Member', color: 'text-[#eae0c8]/60', bg: 'bg-[#0B132B]/60', border: 'border-white/5', bar: 'bg-blue-500' };
   };
 
   const tier = getTier(score);
@@ -23,7 +23,7 @@ export default function ReputationScore({ score, trips }) {
       </div>
       {nextMilestone && (
         <>
-          <div className="w-full bg-white/10 rounded-full h-1.5 mb-1">
+          <div className="w-full bg-[#EAE0C8]/10 rounded-full h-1.5 mb-1">
             <div className={`${tier.bar} h-1.5 rounded-full transition-all`} style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-[#eae0c8]/40 font-medium">{nextMilestone - score} more trips to reach next tier</p>

@@ -8,13 +8,13 @@ export default function FakeCall({ onDismiss }) {
   useEffect(() => {
     const t = setTimeout(() => {
       setRinging(false);
-    }, 8000); // Auto-dismiss ring after 8s
+    }, 8000);
     return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
     if (!callActive) return;
-    const interval = setInterval(() => setTimer(t => t + 1), 1000);
+    const interval = setInterval(() => setTimer((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [callActive]);
 
@@ -26,46 +26,42 @@ export default function FakeCall({ onDismiss }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 flex flex-col items-center justify-between p-10 z-50"
-      style={{ background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)' }}>
-
-      {/* Contact Info */}
-      <div className="text-center mt-12">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white text-4xl font-bold mx-auto mb-4">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-[#0B132B] p-10">
+      <div className="mt-12 text-center">
+        <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600 text-4xl font-bold text-[#EAE0C8]">
           M
         </div>
-        <h2 className="text-white text-3xl font-bold">Mom</h2>
-        <p className="text-gray-400 text-lg mt-2">
-          {ringing ? 'Incoming Call...' : callActive ? `Call in progress • ${formatTime(timer)}` : 'Call ended'}
+        <h2 className="text-3xl font-bold text-[#EAE0C8]">Mom</h2>
+        <p className="mt-2 text-lg text-[#EAE0C8]/60">
+          {ringing ? 'Incoming Call...' : callActive ? `Call in progress - ${formatTime(timer)}` : 'Call ended'}
         </p>
         {callActive && (
-          <p className="text-gray-500 text-sm mt-2 italic">"I'm calling the police right now, stay on the line!"</p>
+          <p className="mt-2 text-sm italic text-[#EAE0C8]/50">"I'm calling the police right now, stay on the line."</p>
         )}
       </div>
 
-      {/* Buttons */}
-      <div className="flex gap-12 mb-8">
+      <div className="mb-8 flex gap-12">
         {ringing ? (
           <>
             <button
               onClick={onDismiss}
-              className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white text-2xl shadow-lg hover:bg-red-700"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-2xl text-[#EAE0C8] shadow-lg hover:bg-red-500"
             >
-              📵
+              End
             </button>
             <button
               onClick={handleAnswer}
-              className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-white text-2xl shadow-lg hover:bg-green-600 animate-pulse"
+              className="flex h-16 w-16 animate-pulse items-center justify-center rounded-full bg-green-600 text-2xl text-[#EAE0C8] shadow-lg hover:bg-green-500"
             >
-              📞
+              Pick
             </button>
           </>
         ) : (
           <button
             onClick={onDismiss}
-            className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white text-2xl shadow-lg hover:bg-red-700"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-2xl text-[#EAE0C8] shadow-lg hover:bg-red-500"
           >
-            📵
+            End
           </button>
         )}
       </div>

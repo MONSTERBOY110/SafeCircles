@@ -48,16 +48,16 @@ export default function Login() {
       style={{ backgroundImage: "url('/hero-bg.png')" }}
     >
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 to-black/80 z-0"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0B132B]/70 to-[#0B132B]/90 z-0"></div>
 
       {/* Glassmorphism Card */}
-      <div className="relative z-10 bg-[#0B132B]/60 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-[400px] border border-white/10">
+      <div className="relative z-10 bg-[#111A3A]/70 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-[400px] border border-white/5">
         <h1 className="text-3xl font-extrabold text-[#eae0c8] text-center mb-6 tracking-wide">
           Welcome Back
         </h1>
         
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 text-red-100 p-3 rounded-lg mb-4 text-sm text-center">
+          <div className="bg-red-500/20 border border-red-500/50 text-[#EAE0C8] p-3 rounded-lg mb-4 text-sm text-center">
             {error}
           </div>
         )}
@@ -68,7 +68,7 @@ export default function Login() {
             <input
               type="email"
               required
-              className="w-full bg-[#0B132B]/50 border border-white/10 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-white/30 transition-all"
+              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
               placeholder=""
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -80,7 +80,7 @@ export default function Login() {
             <input
               type="password"
               required
-              className="w-full bg-[#0B132B]/50 border border-white/10 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-white/30 transition-all"
+              className="w-full bg-[#0B132B]/50 border border-white/5 text-[#eae0c8] rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-[#EAE0C8]/30 transition-all"
               placeholder="Your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -90,7 +90,7 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600/90 text-white font-bold py-3 rounded-lg hover:bg-blue-500 hover:scale-105 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none mt-2"
+            className="w-full bg-blue-600/90 text-[#EAE0C8] font-bold py-3 rounded-lg hover:bg-blue-500 hover:scale-105 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none mt-2"
           >
             {loading ? 'Processing...' : 'Sign In'}
           </button>

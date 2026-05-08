@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../services/firebase';
 import { getCircleMembers } from '../services/matching';
 import { 
-  collection, query, where, onSnapshot, getDoc, doc, 
+  collection, query, where, onSnapshot, orderBy, getDoc, doc, 
   addDoc, serverTimestamp, writeBatch, updateDoc 
 } from 'firebase/firestore';
-import { MapContainer, TileLayer, Marker, Circle as LeafletCircle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Circle as LeafletCircle, useMap } from 'react-leaflet';
 import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2 } from 'lucide-react';
 import ngeohash from 'ngeohash';
 import toast from 'react-hot-toast';
@@ -28,11 +28,49 @@ function AutoCenterMap({ position }) {
   ) : null;
 }
 
+function FitMapBounds({ positions }) {
+  const map = useMap();
+  const boundsKey = positions
+    .filter(Boolean)
+    .map((position) => position.join(','))
+    .join('|');
+
+  useEffect(() => {
+    const validPositions = positions.filter(Boolean);
+    if (validPositions.length > 1) {
+      map.fitBounds(validPositions, { padding: [24, 24] });
+    } else if (validPositions.length === 1) {
+      map.setView(validPositions[0], map.getZoom(), { animate: true });
+    }
+  }, [boundsKey, map]);
+
+  return null;
+}
+
+function toLatLng(coords) {
+  if (!coords) return null;
+
+  if (Array.isArray(coords) && coords.length >= 2) {
+    const [lat, lng] = coords;
+    return typeof lat === 'number' && typeof lng === 'number' ? [lat, lng] : null;
+  }
+
+  const lat = coords.lat ?? coords.latitude;
+  const lng = coords.lng ?? coords.longitude;
+  return typeof lat === 'number' && typeof lng === 'number' ? [lat, lng] : null;
+}
+
+function isSameLatLng(a, b) {
+  if (!a || !b) return false;
+  return Math.abs(a[0] - b[0]) < 0.00001 && Math.abs(a[1] - b[1]) < 0.00001;
+}
+
 export default function CirclePage() {
   const { circleId: paramCircleId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const userId = auth.currentUser?.uid;
+  const currentUser = user;
 
   const [circleId, setCircleId] = useState(paramCircleId);
   const [circle, setCircle] = useState(null);
@@ -43,6 +81,20 @@ export default function CirclePage() {
   const [showFakeCall, setShowFakeCall] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [lastSafetyPing, setLastSafetyPing] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState('');
+  const [walkingRoute, setWalkingRoute] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState('');
+  const messagesEndRef = useRef(null);
+  const sourceCoords = toLatLng(circle?.source_coords || circle?.origin_coords || circle?.meeting_point);
+  const destinationCoords = toLatLng(circle?.destination_coords || circle?.dest_coords);
+  const meetingPointCoords = toLatLng(circle?.meeting_point);
+  const mapCenter = meetingPointCoords || sourceCoords || destinationCoords;
+  const routeKey = sourceCoords && destinationCoords
+    ? `${sourceCoords[0]},${sourceCoords[1]}:${destinationCoords[0]},${destinationCoords[1]}`
+    : '';
 
   // Find active circle if no circleId provided
   useEffect(() => {
@@ -108,6 +160,99 @@ export default function CirclePage() {
 
     return unsubscribe;
   }, [circleId, navigate]);
+
+  useEffect(() => {
+    if (!circleId) return;
+
+    const q = query(
+      collection(db, 'safe_circles', circleId, 'messages'),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+
+      setMessages(msgs);
+    });
+
+    return () => unsubscribe();
+  }, [circleId]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+
+    const fetchUser = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          setUserData(userDoc.data());
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUser();
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!routeKey || !sourceCoords || !destinationCoords) {
+      setWalkingRoute([]);
+      setRouteError('');
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchWalkingRoute = async () => {
+      setRouteLoading(true);
+      setRouteError('');
+
+      try {
+        const [sourceLat, sourceLng] = sourceCoords;
+        const [destLat, destLng] = destinationCoords;
+        const url = `https://router.project-osrm.org/route/v1/foot/${sourceLng},${sourceLat};${destLng},${destLat}?overview=full&geometries=geojson`;
+        const response = await fetch(url, { signal: controller.signal });
+
+        if (!response.ok) {
+          throw new Error(`OSRM route failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const coordinates = data?.routes?.[0]?.geometry?.coordinates;
+
+        if (!Array.isArray(coordinates) || coordinates.length === 0) {
+          throw new Error('OSRM route response did not include coordinates');
+        }
+
+        setWalkingRoute(coordinates.map(([lng, lat]) => [lat, lng]));
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+
+        console.error('Walking route fetch failed:', error);
+        setWalkingRoute([]);
+        setRouteError('Walking route unavailable. Showing map markers only.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setRouteLoading(false);
+        }
+      }
+    };
+
+    fetchWalkingRoute();
+
+    return () => controller.abort();
+  }, [routeKey]);
 
   // Get user location
   useEffect(() => {
@@ -223,6 +368,30 @@ export default function CirclePage() {
     }
   };
 
+  const handleSendMessage = async () => {
+    const safeMessage = messageText.trim();
+    const senderId = currentUser?.uid || userId;
+    const senderName = userData?.name || currentUser?.email || 'User';
+
+    if (!safeMessage || !circleId || !senderId || !senderName) return;
+
+    try {
+      await addDoc(
+        collection(db, 'safe_circles', circleId, 'messages'),
+        {
+          text: safeMessage,
+          senderId,
+          senderName,
+          createdAt: serverTimestamp(),
+        }
+      );
+
+      setMessageText('');
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
   // Complete trip
   const handleCompleteTrip = async () => {
     if (!window.confirm('Mark trip as completed?')) return;
@@ -289,17 +458,42 @@ export default function CirclePage() {
     );
   }
 
+  const routeParts = (circle.route_summary || '')
+    .split(/\s*(?:->|→|â†’)\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const rawSourceLabel = circle.source || circle.origin || circle.origin_landmark || routeParts[0];
+  const sourceLabel = rawSourceLabel || 'Source';
+  const destinationLabel =
+    circle.destination ||
+    circle.destination_landmark ||
+    routeParts[1] ||
+    'Destination';
+  const meetingPointLabel =
+    circle.meetingPoint ||
+    rawSourceLabel ||
+    circle.meeting_point?.name ||
+    'Meeting Point';
+
   return (
     <div className="min-h-screen bg-[#0B132B] flex flex-col text-[#eae0c8] pb-20">
       <Header />
 
       <main className="flex-1 px-4 py-6 max-w-2xl mx-auto w-full">
         {/* Header Card */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h1 className="text-3xl font-bold mb-1">Your SafeCircle</h1>
           <p className="text-[#eae0c8]/60 flex items-center gap-2">
             <MapPin className="w-4 h-4" />
-            {circle.meeting_point?.name} → {circle.route_summary?.split('→')[1] || 'Destination'}
+            Source: <span className="text-[#eae0c8]">{sourceLabel}</span>
+          </p>
+          <p className="text-[#eae0c8]/60 mt-2 flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Destination: <span className="text-[#eae0c8]">{destinationLabel}</span>
+          </p>
+          <p className="text-[#eae0c8]/60 mt-2 flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Meeting Point: <span className="text-[#eae0c8]">{meetingPointLabel}</span>
           </p>
           <p className="text-[#eae0c8]/60 mt-3 flex items-center gap-2">
             <Users className="w-4 h-4" />
@@ -308,37 +502,53 @@ export default function CirclePage() {
         </div>
 
         {/* Meeting Point Card */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-blue-400" />
             Meeting Point
           </h2>
-          <p className="text-[#eae0c8] font-medium">{circle.meeting_point?.name}</p>
+          <p className="text-[#eae0c8] font-medium">{meetingPointLabel}</p>
           <p className="text-[#eae0c8]/60 text-sm mt-2">
             Departure: {circle.estimated_departure ? new Date(circle.estimated_departure).toLocaleTimeString() : 'TBD'}
           </p>
         </div>
 
         {/* Live Map */}
-        {circle.meeting_point && (
-          <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
-            <MapContainer center={[circle.meeting_point.lat, circle.meeting_point.lng]} zoom={15} className="h-full w-full rounded-lg">
+        {mapCenter && (
+          <div className="relative bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-4 mb-6 h-64 overflow-hidden">
+            <MapContainer center={mapCenter} zoom={15} className="h-full w-full rounded-lg">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-              <Marker position={[circle.meeting_point.lat, circle.meeting_point.lng]} />
-              <AutoCenterMap position={userLocation} />
+              {walkingRoute.length > 0 && (
+                <Polyline
+                  positions={walkingRoute}
+                  pathOptions={{ color: '#3b82f6', weight: 5, opacity: 0.9 }}
+                />
+              )}
+              {sourceCoords && <Marker position={sourceCoords} />}
+              {destinationCoords && <Marker position={destinationCoords} />}
+              {meetingPointCoords && !isSameLatLng(meetingPointCoords, sourceCoords) && !isSameLatLng(meetingPointCoords, destinationCoords) && (
+                <Marker position={meetingPointCoords} />
+              )}
+              {userLocation && <AutoCenterMap position={userLocation} />}
+              <FitMapBounds positions={walkingRoute.length > 0 ? walkingRoute : [sourceCoords, destinationCoords, meetingPointCoords]} />
             </MapContainer>
+            {(routeLoading || routeError) && (
+              <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[500] rounded-xl border border-white/5 bg-[#0B132B]/80 px-3 py-2 text-xs text-[#eae0c8]/70 backdrop-blur-md">
+                {routeLoading ? 'Loading walking route...' : routeError}
+              </div>
+            )}
           </div>
         )}
 
         {/* Members List */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-400" />
             Members
           </h2>
           <div className="space-y-3">
             {members.map((member, idx) => (
-              <div key={member.uid + idx} className="flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 rounded-lg transition">
+              <div key={member.uid + idx} className="flex items-center justify-between p-3 bg-[#0B132B]/60 hover:bg-[#111A3A] rounded-lg transition">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                   <div>
@@ -369,10 +579,10 @@ export default function CirclePage() {
 
           <button
             onClick={handleFakeCall}
-            className="bg-green-500/20 hover:bg-green-500/30 border border-green-500/50 rounded-xl p-4 transition flex flex-col items-center gap-2"
+            className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 rounded-xl p-4 transition flex flex-col items-center gap-2"
           >
-            <Phone className="w-6 h-6 text-green-400" />
-            <span className="text-xs font-semibold text-green-300">Fake Call</span>
+            <Phone className="w-6 h-6 text-blue-400" />
+            <span className="text-xs font-semibold text-blue-300">Fake Call</span>
           </button>
 
           <button
@@ -393,7 +603,7 @@ export default function CirclePage() {
         </div>
 
         {/* Safety Ping Buttons */}
-        <div className="bg-[#111A3A]/80 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
           <h2 className="text-sm font-semibold mb-3 text-[#eae0c8]/60 uppercase tracking-wide">Safety Status</h2>
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -412,8 +622,8 @@ export default function CirclePage() {
               disabled={lastSafetyPing === 'moderate'}
               className={`py-3 px-2 rounded-lg font-medium text-xs transition ${
                 lastSafetyPing === 'moderate'
-                  ? 'bg-yellow-500/40 text-yellow-200'
-                  : 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300'
+                  ? 'bg-blue-500/40 text-[#EAE0C8]'
+                  : 'bg-blue-500/20 hover:bg-blue-500/30 text-blue-300'
               }`}
             >
               Moderate
@@ -432,6 +642,53 @@ export default function CirclePage() {
           </div>
         </div>
 
+        {/* Chat Composer */}
+        <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" />
+            Circle Chat
+          </h2>
+          <div className="mb-4 h-[300px] overflow-y-auto space-y-3 pr-1">
+            {messages.length === 0 ? (
+              <p className="text-sm text-[#eae0c8]/60">No messages yet</p>
+            ) : (
+              messages.map((msg) => (
+                <div key={msg.id} className="rounded-xl border border-white/5 bg-[#0B132B]/60 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-300">
+                    {msg.senderName || 'User'}
+                  </p>
+                  <p className="mt-1 text-sm text-[#eae0c8]">{msg.text}</p>
+                </div>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Send a message to your circle..."
+              maxLength={300}
+              className="flex-1 rounded-xl border border-white/5 bg-[#0B132B]/60 px-4 py-3 text-[#eae0c8] placeholder:text-[#eae0c8]/40 outline-none focus:border-blue-400/40"
+            />
+            <button
+              type="button"
+              onClick={handleSendMessage}
+              disabled={!messageText.trim()}
+              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-[#EAE0C8] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
         {/* Complete Trip Button */}
         <button
           onClick={handleCompleteTrip}
@@ -444,12 +701,12 @@ export default function CirclePage() {
 
       {/* Fake Call Modal */}
       {showFakeCall && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#111A3A]/95 backdrop-blur-md border border-white/10 rounded-2xl p-8 text-center max-w-sm">
-            <Phone className="w-16 h-16 text-green-400 mx-auto mb-4 animate-pulse" />
+        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50">
+          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center max-w-sm">
+            <Phone className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
             <h3 className="text-2xl font-bold text-[#eae0c8] mb-2">Incoming Call</h3>
             <p className="text-[#eae0c8]/60 mb-6">Mom</p>
-            <p className="text-sm text-green-400">
+            <p className="text-sm text-blue-300">
               "I'm calling the police, stay safe"
             </p>
           </div>
@@ -458,8 +715,8 @@ export default function CirclePage() {
 
       {/* Emergency Modal */}
       {showEmergency && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#111A3A]/95 backdrop-blur-md border border-white/10 rounded-2xl p-6 max-w-sm">
+        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50">
+          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-6 max-w-sm">
             <h3 className="text-xl font-bold text-[#eae0c8] mb-4 flex items-center gap-2">
               <AlertTriangle className="w-6 h-6 text-red-500" />
               Emergency Contacts
@@ -479,7 +736,7 @@ export default function CirclePage() {
               </a>
               <button
                 onClick={() => setShowEmergency(false)}
-                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl py-3 text-[#eae0c8] font-medium transition"
+                className="w-full bg-[#0B132B]/60 hover:bg-[#0B132B] border border-white/5 rounded-xl py-3 text-[#eae0c8] font-medium transition"
               >
                 Close
               </button>

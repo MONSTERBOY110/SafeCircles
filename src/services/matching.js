@@ -77,7 +77,7 @@ export function listenToUserTrips(userId, callback) {
     where('status', 'in', ['pending', 'active', 'matched'])
   );
   return onSnapshot(q, (snapshot) => {
-    const trips = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const trips = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     callback(trips);
   });
 }
@@ -87,189 +87,155 @@ export function listenToUserTrips(userId, callback) {
  * Find matching trips and create a SafeCircle without Cloud Functions
  */
 export async function findAndMatchTrips(newTripData, newTripId) {
-  const userId = auth.currentUser?.uid;
-  if (!userId) {
-    console.error('❌ User not authenticated');
+  const currentUserId = newTripData?.userId || auth.currentUser?.uid;
+  if (!currentUserId) {
+    console.error('User not authenticated');
     return null;
   }
 
   try {
-    console.log('🔍 Starting frontend matching for trip:', newTripId);
+    console.log('Starting frontend matching for trip:', newTripId);
     console.log('New Trip Data:', newTripData);
 
-    // Step 1: Fetch all pending trips (excluding current user)
+    if (!newTripData?.origin_geohash || !newTripData?.dest_geohash) {
+      console.log('Skipping invalid new trip:', newTripId);
+      return null;
+    }
+
     const tripsQuery = query(
       collection(db, 'trips'),
       where('status', '==', 'pending')
     );
 
     const tripsSnapshot = await getDocs(tripsQuery);
-    console.log(`📊 Found ${tripsSnapshot.size} pending trips in database`);
+    console.log(`Found ${tripsSnapshot.size} pending trips in database`);
 
-    // DEBUG: Log trip fields to diagnose issues
-    console.log('Trip fields check:', tripsSnapshot.docs.slice(0, 3).map(d => ({
-      id: d.id,
-      userId: d.data().userId,
-      hasUserId: !!d.data().userId
-    })));
-
-    // Step 2: Filter trips on frontend
     const matches = [];
     const uniqueUserIds = new Set();
     const newOriginPrefix = newTripData.origin_geohash.substring(0, 4);
 
     for (const tripDoc of tripsSnapshot.docs) {
-      const trip = tripDoc.data();
-      const tripId = tripDoc.id;
+      const trip = { id: tripDoc.id, ...tripDoc.data() };
 
-      // VALIDATION: Ensure userId exists
-      if (!trip.userId) {
-        console.log(`⏭️  Skipping trip - missing userId`, tripId);
+      if (!trip.userId || !trip.origin_geohash || !trip.dest_geohash) {
+        console.log('Skipping invalid trip:', trip.id);
         continue;
       }
 
-      // Skip current user's trips
-      if (trip.userId === userId) {
-        console.log(`⏭️  Skipping own trip: ${tripId}`);
+      if (trip.id === newTripId) {
         continue;
       }
 
-      // Skip if not verified
-      if (!trip.isVerified && trip.isVerified !== undefined) {
-        console.log(`⏭️  Skipping unverified trip: ${tripId}`);
+      if (trip.userId === currentUserId) {
         continue;
       }
 
-      // RELAXED: Match origin geohash (4-char precision)
-      const tripOriginPrefix = trip.origin_geohash?.substring(0, 4) || '';
+      const tripOriginPrefix = trip.origin_geohash.substring(0, 4);
       if (newOriginPrefix !== tripOriginPrefix) {
-        console.log(
-          `⏭️  Geohash mismatch for ${tripId}: ` +
-            `${tripOriginPrefix} vs ${newOriginPrefix}`
-        );
         continue;
       }
 
-      console.log(`✅ Geohash match found: ${tripId}`);
-
-      // STRICT VALIDATION: Fetch and validate user data
-      const userRef = doc(db, 'users', trip.userId);
-      const userDoc = await getDoc(userRef);
-      
+      const userDoc = await getDoc(doc(db, 'users', trip.userId));
       if (!userDoc.exists()) {
-        console.log(`⏭️  User not found in database: ${trip.userId}`);
         continue;
       }
 
       const userData = userDoc.data();
-      
-      // Validate required user fields
-      if (!userData?.name) {
-        console.log(`⏭️  User has no name field: ${trip.userId}`);
+      const isUserVerified =
+        userData?.isVerified === true ||
+        userData?.verification_status === 'VERIFIED';
+
+      if (!userData || !isUserVerified) {
         continue;
       }
 
-      if (userData.verification_status !== 'VERIFIED') {
-        console.log(`⏭️  User not verified: ${trip.userId}`);
+      if (uniqueUserIds.has(trip.userId)) {
         continue;
       }
 
-      // DEDUPLICATION: Only add if userId not already in matches
-      if (!uniqueUserIds.has(trip.userId)) {
-        uniqueUserIds.add(trip.userId);
-        matches.push({
-          tripId,
-          userId: trip.userId,
-          name: userData.name,
-          reputation: userData.reputation_score || 0,
-        });
-        console.log(`✅ User ${trip.userId} (${userData.name}) verified, adding to matches`);
-      } else {
-        console.log(`⏭️  User ${trip.userId} already in matches, skipping duplicate`);
-      }
+      uniqueUserIds.add(trip.userId);
+      matches.push({
+        tripId: trip.id,
+        userId: trip.userId,
+        name: userData.name || 'User',
+        reputation: userData.reputation || userData.reputation_score || 0,
+      });
     }
 
-    console.log(`📋 Total matches found: ${matches.length}`);
+    console.log('Matches found:', matches.length);
 
-    // Step 3: Check if we have enough matches (minimum 1 for a circle of 2+)
-    if (matches.length < 1) {
-      console.log('❌ Not enough matches to form a circle');
+    const uniqueMatches = [];
+    const seen = new Set();
+
+    for (const m of matches) {
+      if (!m?.userId || seen.has(m.userId)) {
+        continue;
+      }
+
+      seen.add(m.userId);
+      uniqueMatches.push(m);
+    }
+
+    uniqueMatches.sort((a, b) => b.reputation - a.reputation);
+    const finalMembers = uniqueMatches.slice(0, 4);
+
+    if (finalMembers.length < 1) {
+      console.log('Not enough users to form circle');
       return null;
     }
 
-    // Step 4: Sort by reputation and take top 4
-    matches.sort((a, b) => b.reputation - a.reputation);
-    const selectedMatches = matches.slice(0, 4);
-    console.log(`👥 Selected ${selectedMatches.length} matches for circle`);
-
-    // VALIDATION: Filter only valid members before creating circle
-    const validMembers = selectedMatches.filter(m => {
-      if (!m.userId || !m.name) {
-        console.log(`⏭️  Filtering out invalid member:`, m);
-        return false;
-      }
-      return true;
-    });
-
-    if (validMembers.length < 1) {
-      console.log('❌ Not enough valid members after filtering');
-      return null;
-    }
-
-    console.log(`✅ ${validMembers.length} valid members for circle`);
-
-    // Step 5: Create SafeCircle document with VALIDATED data only
-    // DEDUPLICATION: Ensure no duplicate userIds in final member list
-    const uniqueMemberIds = new Set([userId, ...validMembers.map(m => m.userId)]);
+    const uniqueMemberIds = new Set([currentUserId, ...finalMembers.map((m) => m.userId)]);
     const allMemberIds = Array.from(uniqueMemberIds);
-    console.log(`👥 Final unique members: ${allMemberIds.length}`);
-    
-    // Ensure all required fields exist
-    const meetingPointName = newTripData.origin_landmark || 'Meeting Point';
+
+    const routeOrigin = newTripData.origin_landmark || newTripData.origin || 'Unknown';
+    const routeDestination = newTripData.destination_landmark || newTripData.destination || 'Unknown';
+    const meetingPointName = newTripData.origin || newTripData.origin_landmark || 'Meeting Point';
     const meetingPointLat = newTripData.origin_coords?.lat;
     const meetingPointLng = newTripData.origin_coords?.lng;
-    
-    if (meetingPointLat === undefined || meetingPointLng === undefined) {
-      console.error('❌ Invalid meeting point coordinates');
+    const estimatedDeparture =
+      newTripData.departure_window?.start ||
+      newTripData.timeWindowStart ||
+      new Date();
+    const circleType = newTripData.circle_type || newTripData.circleType || 'Mixed';
+    const destCoords = newTripData.dest_coords && typeof newTripData.dest_coords.lat === 'number' && typeof newTripData.dest_coords.lng === 'number'
+      ? newTripData.dest_coords
+      : { lat: meetingPointLat, lng: meetingPointLng };
+
+    if (typeof meetingPointLat !== 'number' || typeof meetingPointLng !== 'number') {
+      console.error('Invalid meeting point coordinates');
       return null;
     }
+
+    console.log('Creating circle...');
 
     const circleData = {
       member_ids: allMemberIds,
+      meetingPoint: meetingPointName,
       meeting_point: {
         name: meetingPointName,
         lat: meetingPointLat,
         lng: meetingPointLng,
       },
-      dest_coords: newTripData.dest_coords || { lat: 0, lng: 0 },
-      route_summary: `${newTripData.origin_landmark || 'Unknown'} → ${newTripData.destination_landmark || 'Unknown'}`,
-      estimated_departure: newTripData.departure_window?.start || new Date(),
+      dest_coords: destCoords,
+      route_summary: `${routeOrigin} → ${routeDestination}`,
+      estimated_departure: estimatedDeparture,
       status: 'forming',
-      circle_type: newTripData.circle_type || 'Mixed',
+      circle_type: circleType,
       created_at: serverTimestamp(),
       expires_at: new Date(Date.now() + 90 * 60 * 1000),
     };
 
-    console.log('📝 Circle data to create:', {
-      members: allMemberIds.length,
-      meetingPoint: circleData.meeting_point.name,
-      status: circleData.status,
-    });
-
     const circleRef = await addDoc(collection(db, 'safe_circles'), circleData);
-    console.log(`✅ SafeCircle created: ${circleRef.id}`);
+    console.log(`SafeCircle created: ${circleRef.id}`);
 
-    // Step 6: Update all trips with circle_id and status = 'matched'
     const batch = writeBatch(db);
 
-    // Update new trip
     batch.update(doc(db, 'trips', newTripId), {
       circle_id: circleRef.id,
       status: 'matched',
     });
 
-    // Update all matched trips
-    validMembers.forEach(match => {
+    finalMembers.forEach((match) => {
       if (match.tripId) {
         batch.update(doc(db, 'trips', match.tripId), {
           circle_id: circleRef.id,
@@ -279,16 +245,16 @@ export async function findAndMatchTrips(newTripData, newTripId) {
     });
 
     await batch.commit();
-    console.log(`✅ All trips updated with circle_id: ${circleRef.id}`);
+    console.log(`All trips updated with circle_id: ${circleRef.id}`);
 
     return {
       success: true,
       circleId: circleRef.id,
       memberCount: allMemberIds.length,
-      matchedTrips: selectedMatches.length,
+      matchedTrips: finalMembers.length,
     };
   } catch (error) {
-    console.error('❌ Matching error:', error);
+    console.error('Matching error:', error);
     return null;
   }
 }
@@ -299,23 +265,23 @@ export async function findAndMatchTrips(newTripData, newTripId) {
 export async function deleteTrip(tripId) {
   try {
     const tripDoc = await getDoc(doc(db, 'trips', tripId));
-    
+
     if (!tripDoc.exists()) {
       throw new Error('Trip not found');
     }
 
     const trip = tripDoc.data();
-    
+
     // Only allow delete if trip is pending
     if (trip.status !== 'pending') {
       throw new Error('Can only delete trips with pending status');
     }
 
     await deleteDoc(doc(db, 'trips', tripId));
-    console.log(`✅ Trip deleted: ${tripId}`);
+    console.log(`Trip deleted: ${tripId}`);
     return true;
   } catch (error) {
-    console.error('❌ Delete trip error:', error);
+    console.error('Delete trip error:', error);
     throw error;
   }
 }
@@ -326,7 +292,7 @@ export async function deleteTrip(tripId) {
 export async function getCircleMembers(circleId) {
   try {
     const circleDoc = await getDoc(doc(db, 'safe_circles', circleId));
-    
+
     if (!circleDoc.exists()) {
       throw new Error('Circle not found');
     }
@@ -356,7 +322,7 @@ export async function getCircleMembers(circleId) {
 
     return memberDetails;
   } catch (error) {
-    console.error('❌ Get circle members error:', error);
+    console.error('Get circle members error:', error);
     throw error;
   }
 }
@@ -367,7 +333,7 @@ export async function getCircleMembers(circleId) {
 export async function getTripWithMembers(tripId) {
   try {
     const tripDoc = await getDoc(doc(db, 'trips', tripId));
-    
+
     if (!tripDoc.exists()) {
       throw new Error('Trip not found');
     }
@@ -381,7 +347,7 @@ export async function getTripWithMembers(tripId) {
 
     return { id: tripDoc.id, ...trip, members: [] };
   } catch (error) {
-    console.error('❌ Get trip with members error:', error);
+    console.error('Get trip with members error:', error);
     throw error;
   }
 }

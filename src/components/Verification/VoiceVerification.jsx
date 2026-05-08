@@ -412,32 +412,32 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
   }, []);
 
   // ── Helpers for render ────────────────────────────────────────────────
-  const timeColor = timeLeft <= 3 ? 'text-red-500' : timeLeft <= 5 ? 'text-yellow-500' : 'text-blue-600';
+  const timeColor = timeLeft <= 3 ? 'text-red-400' : 'text-blue-300';
   const barPercent = (timeLeft / VERIFICATION.MAX_RECORDING_SECONDS) * 100;
 
   return (
     <div className="text-center">
-      <h3 className="text-2xl font-bold mb-1 text-gray-800">Step 3: Voice Verification</h3>
-      <p className="text-gray-500 mb-5 text-sm">
+      <h3 className="mb-1 text-2xl font-bold text-[#EAE0C8]">Step 3: Voice Verification</h3>
+      <p className="mb-5 text-sm text-[#EAE0C8]/60">
         Speak the prompt below — proves you're live and not a recording
       </p>
 
       {/* Prompt card */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 mb-3 shadow-sm">
-        <p className="text-xs text-blue-400 font-semibold uppercase tracking-widest mb-2">🎤 Say This Exact Sentence</p>
-        <p className="text-blue-900 font-bold text-xl leading-snug">"{prompt}"</p>
+      <div className="mb-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5 shadow-sm">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-blue-300">Say This Exact Sentence</p>
+        <p className="text-xl font-bold leading-snug text-[#EAE0C8]">"{prompt}"</p>
       </div>
 
       {/* SR fallback notice */}
       {spokenText.includes('unavailable') && (
-        <div className="mb-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-yellow-700 text-xs font-medium">
+        <div className="mb-4 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-medium text-blue-300">
           ⚠️ Speech-to-text unavailable in this environment — verifying by voice audio &amp; lip movement only.
         </div>
       )}
 
       {/* Live transcript display during recording */}
       {status === S.RECORDING && spokenText && !spokenText.includes('unavailable') && (
-        <div className="mb-3 px-4 py-2 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium">
+        <div className="mb-3 rounded-xl border border-green-500/20 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-300">
           🗣 Heard: "{spokenText}"
         </div>
       )}
@@ -449,14 +449,14 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
           ref={canvasRef}
           width={640}
           height={480}
-          className={`rounded-xl mx-auto block max-w-full border-4 transition-colors duration-300 ${status === S.RECORDING ? 'border-red-400' : 'border-blue-200'
+          className={`mx-auto block max-w-full rounded-xl border-4 transition-colors duration-300 ${status === S.RECORDING ? 'border-blue-400' : 'border-blue-200'
             }`}
           style={{ maxHeight: 320 }}
         />
         {status === S.RECORDING && (
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/50 rounded-full px-3 py-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-white text-xs font-bold tracking-wide">RECORDING</span>
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-[#0B132B]/80 px-3 py-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-xs font-bold tracking-wide text-[#EAE0C8]">RECORDING</span>
           </div>
         )}
 
@@ -471,7 +471,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
                   height: `${Math.max(4, (i / 7) * 40)}px`,
                   backgroundColor: audioLevel > ((i + 1) / 8) * 100
                     ? (audioLevel > 70 ? '#22c55e' : '#3b82f6')
-                    : 'rgba(255,255,255,0.2)',
+                    : 'rgba(234,224,200,0.18)',
                 }}
               />
             ))}
@@ -482,16 +482,16 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       {/* Countdown timer bar */}
       {status === S.RECORDING && (
         <div className="max-w-xs mx-auto mb-4 space-y-1">
-          <div className="flex justify-between text-xs font-medium text-gray-400">
+          <div className="flex justify-between text-xs font-medium text-[#EAE0C8]/50">
             <span>Time remaining</span>
             <span className={`font-bold text-sm ${timeColor}`}>{timeLeft}s</span>
           </div>
-          <div className="h-3 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+          <div className="h-3 overflow-hidden rounded-full border border-white/5 bg-[#111A3A]">
             <div
               className="h-3 rounded-full transition-all duration-1000"
               style={{
                 width: `${barPercent}%`,
-                background: timeLeft <= 3 ? '#ef4444' : timeLeft <= 5 ? '#f59e0b' : '#3b82f6',
+                background: timeLeft <= 3 ? '#ef4444' : '#3b82f6',
               }}
             />
           </div>
@@ -503,7 +503,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
         <button
           onClick={startRecording}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg transition disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 text-lg font-bold text-[#EAE0C8] shadow-lg transition hover:bg-blue-500 disabled:opacity-50"
         >
           🎤 Start Recording
         </button>
@@ -513,14 +513,14 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
         <button
           onClick={stopRecording}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-bold text-lg shadow-lg transition animate-pulse disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-8 py-4 text-lg font-bold text-[#EAE0C8] shadow-lg transition animate-pulse hover:bg-blue-500 disabled:opacity-50"
         >
           ⏹ Done Speaking
         </button>
       )}
 
       {status === S.ANALYZING && (
-        <button disabled className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-blue-50 text-blue-700 font-bold text-lg border border-blue-200">
+        <button disabled className="inline-flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-8 py-4 text-lg font-bold text-blue-300">
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-blue-700" />
           Verifying... Please wait
         </button>
@@ -529,10 +529,10 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       {/* Results panel */}
       {(status === S.PASS || status === S.FAIL) && result && (
         <div className={`max-w-xs mx-auto rounded-2xl p-5 mb-4 border-2 ${status === S.PASS
-            ? 'bg-green-50 border-green-400'
-            : 'bg-red-50 border-red-400'
+            ? 'bg-green-500/10 border-green-400'
+            : 'bg-red-500/10 border-red-400'
           }`}>
-          <p className={`font-bold text-xl mb-3 ${status === S.PASS ? 'text-green-700' : 'text-red-600'}`}>
+          <p className={`font-bold text-xl mb-3 ${status === S.PASS ? 'text-green-300' : 'text-red-300'}`}>
             {status === S.PASS ? '✅ Voice Verified!' : '❌ Verification Failed'}
           </p>
           <div className="text-sm space-y-1 text-left">
@@ -549,7 +549,7 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
           {status === S.FAIL && (
             <button
               onClick={() => { setStatus(S.IDLE); setResult(null); setError(''); }}
-              className="mt-4 w-full py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+              className="mt-4 w-full rounded-xl bg-blue-600 py-2 font-semibold text-[#EAE0C8] transition hover:bg-blue-500"
             >
               Try Again
             </button>
@@ -559,11 +559,11 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 
       {/* Error */}
       {error && (
-        <div className="max-w-xs mx-auto mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
+        <div className="max-w-xs mx-auto mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-300 text-sm font-medium">
           ⚠️ {error}
           <button
             onClick={() => { setStatus(S.IDLE); setError(''); }}
-            className="block mx-auto mt-2 text-blue-600 underline text-xs"
+            className="block mx-auto mt-2 text-blue-300 underline text-xs"
           >
             Try again
           </button>
@@ -571,12 +571,12 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
       )}
 
       {isLoading && (
-        <div className="mt-4 text-blue-600 font-semibold animate-pulse">
+        <div className="mt-4 text-blue-300 font-semibold animate-pulse">
           Saving verification... please wait
         </div>
       )}
 
-      <p className="text-xs text-gray-400 mt-5">
+      <p className="mt-5 text-xs text-[#EAE0C8]/50">
         Speak clearly for {VERIFICATION.MIN_RECORDING_SECONDS}–{VERIFICATION.MAX_RECORDING_SECONDS}s.
         Voice is analyzed locally and never stored.
       </p>
@@ -588,8 +588,8 @@ export default function VoiceVerification({ onVoiceVerificationComplete, isLoadi
 function ResultRow({ label, ok, value }) {
   return (
     <div className="flex justify-between items-center py-0.5">
-      <span className="text-gray-500">{label}</span>
-      <span className={`font-semibold flex items-center gap-1 ${ok ? 'text-green-700' : 'text-red-600'}`}>
+      <span className="text-[#EAE0C8]/60">{label}</span>
+      <span className={`font-semibold flex items-center gap-1 ${ok ? 'text-green-300' : 'text-red-300'}`}>
         {ok ? '✅' : '❌'} {value}
       </span>
     </div>
