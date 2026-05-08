@@ -23,6 +23,7 @@
     "firebase": "^10.14.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.7.0",
+    "motion": "^12.38.0",
     "ngeohash": "^0.6.3",
     "onnxruntime-web": "^1.25.1",
     "pitchy": "^4.1.0",

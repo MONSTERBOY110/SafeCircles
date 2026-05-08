@@ -3,6 +3,8 @@ node_modules/
 .pnp
 .pnp.js
 .codex/
+.claude
+
 # Testing
 coverage/
 .nyc_output/
