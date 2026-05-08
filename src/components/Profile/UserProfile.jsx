@@ -5,8 +5,9 @@ import ReputationScore from './ReputationScore';
 import { Star, Route } from 'lucide-react';
 
 export default function UserProfile() {
-  const { user, userData } = useAuth();
+  const { user, userData, isVerified } = useAuth();
   if (!user || !userData) return null;
+  const verificationStatus = isVerified ? 'VERIFIED' : userData.verification_status;
 
   return (
     <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl shadow-xl p-8 max-w-lg mx-auto">
@@ -18,7 +19,7 @@ export default function UserProfile() {
         <div>
           <h2 className="text-2xl font-bold text-[#eae0c8]">{userData.name}</h2>
           <p className="text-[#eae0c8]/50 text-sm">{user.email}</p>
-          <VerificationBadge status={userData.verification_status} />
+          <VerificationBadge status={verificationStatus} />
         </div>
       </div>
 

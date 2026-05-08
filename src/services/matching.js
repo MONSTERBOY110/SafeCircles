@@ -310,7 +310,9 @@ export async function getCircleMembers(circleId) {
               uid,
               name: userData.name || 'User',
               reputation: userData.reputation_score || 0,
-              verified: userData.verification_status === 'VERIFIED',
+              verified:
+                userData.isVerified === true ||
+                userData.verification_status === 'VERIFIED',
             };
           }
         } catch (err) {

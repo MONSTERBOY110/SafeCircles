@@ -7,7 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../services/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -18,9 +18,17 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let unsubProfile = null;
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
+        // Tear down any previous profile listener when auth state changes
+        if (unsubProfile) {
+          unsubProfile();
+          unsubProfile = null;
+        }
+
         if (firebaseUser) {
           console.log('[Auth] Firebase Authentication session active:', {
             uid: firebaseUser.uid,
@@ -31,8 +39,30 @@ export function AuthProvider({ children }) {
           setUser(firebaseUser);
           setLoading(false);
 
-          // Fetch Firestore data in BACKGROUND without blocking UI
-          fetchUserDataAsync(firebaseUser.uid);
+          // Subscribe to live profile updates so manual Firestore edits
+          // (e.g. flipping isVerified) propagate without a re-login.
+          unsubProfile = onSnapshot(
+            doc(db, 'users', firebaseUser.uid),
+            (snap) => {
+              if (snap.exists()) {
+                const data = snap.data();
+                console.log('[Auth] Firestore userData:', data);
+                setUserData(data);
+              } else {
+                console.warn('[Auth] Firestore profile document not found:', {
+                  uid: firebaseUser.uid,
+                });
+                setUserData(null);
+              }
+            },
+            (err) => {
+              console.warn('[Auth] Could not subscribe to Firestore profile:', {
+                uid: firebaseUser.uid,
+                code: err.code,
+                message: err.message,
+              });
+            }
+          );
         } else {
           console.log('[Auth] No Firebase Authentication session.');
           setUser(null);
@@ -50,29 +80,11 @@ export function AuthProvider({ children }) {
       }
     );
 
-    return unsubscribe;
+    return () => {
+      if (unsubProfile) unsubProfile();
+      unsubscribe();
+    };
   }, []);
-
-  // Async Firestore fetch that doesn't block the UI
-  const fetchUserDataAsync = async (uid) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        console.log('[Auth] Firestore profile document loaded:', { uid });
-        setUserData(userDoc.data());
-      } else {
-        console.warn('[Auth] Firestore profile document not found. Login is still valid because Firebase Authentication succeeded:', { uid });
-      }
-    } catch (err) {
-      // Silently warn — common in dev when ad blocker blocks firestore.googleapis.com
-      console.warn('[Auth] Could not fetch Firestore profile data. This does not block Firebase Authentication login:', {
-        uid,
-        code: err.code,
-        message: err.message,
-      });
-      // Do NOT set error state — this is non-critical background fetch
-    }
-  };
 
   const signup = async (email, password, name) => {
     try {
@@ -166,7 +178,9 @@ export function AuthProvider({ children }) {
       login,
       logout,
       refreshUserData,
-      isVerified: userData?.verification_status === 'VERIFIED'
+      isVerified:
+        userData?.isVerified === true ||
+        userData?.verification_status === 'VERIFIED'
     }}>
       {children}
     </AuthContext.Provider>

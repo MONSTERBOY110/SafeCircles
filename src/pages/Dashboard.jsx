@@ -27,7 +27,7 @@ function LocationMarker({ position }) {
 }
 
 export default function Dashboard() {
-  const { user, userData, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading, isVerified } = useAuth();
 
   const [trips, setTrips] = useState([]);
   const [tripsLoading, setTripsLoading] = useState(true);
@@ -38,7 +38,8 @@ export default function Dashboard() {
   const [showPopup, setShowPopup] = useState(false);
 
   const displayName = userData?.name || user?.displayName || 'User';
-  const isVerified = userData?.verification_status === 'VERIFIED';
+  console.log('[Dashboard] Firestore userData:', userData);
+  console.log('[Dashboard] Verified status:', isVerified);
   const circleType = 'Women Only';
 
   useEffect(() => {
