@@ -10,22 +10,22 @@ style="border-radius: 15px; box-shadow: inset 0 -50px 100px rgba(0,0,0,0.4);" />
 <table>
   <tr>
     <td width="50%" align="center">
-      <strong>Trip</strong><br />
-      <img src="frontend/public/trip.png" width="100%" alt="SafeCircles Dashboard screen" />
-    </td>
-    <td width="50%" align="center">
       <strong>Dashboard</strong><br />
       <img src="frontend/public/dashboard.png" width="100%" alt="SafeCircles Chat screen" />
+    </td>
+    <td width="50%" align="center">
+      <strong>Trip</strong><br />
+      <img src="frontend/public/trip.png" width="100%" alt="SafeCircles Dashboard screen" />
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <strong>Circle</strong><br />
-      <img src="frontend/public/circle.png" width="100%" alt="SafeCircles Circle screen" />
-    </td>
-    <td width="50%" align="center">
       <strong>Profile</strong><br />
       <img src="frontend/public/profile.png" width="100%" alt="SafeCircles Profile screen" />
+    </td>
+    <td width="50%" align="center">
+      <strong>Circle</strong><br />
+      <img src="frontend/public/circle.png" width="100%" alt="SafeCircles Circle screen" />
     </td>
   </tr>
 </table>
