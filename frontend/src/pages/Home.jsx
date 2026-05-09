@@ -147,7 +147,7 @@ export default function Home() {
             SafeCircles
           </p>
           <p className="text-base md:text-lg italic text-[#EAE0C8]/80 leading-relaxed mb-8">
-            "A future where no <span className="text-[#EAE0C8] font-semibold not-italic">WOMAN</span> fears walking home after 7 PM"
+            "A future where no <span className="text-[#EAE0C8] font-semibold not-italic">WOMAN</span> fears walking home after 8 PM"
           </p>
           <p className="text-xs uppercase tracking-[0.3em] text-[#EAE0C8]/40">
             Built by TeesMaarKhaCoders
