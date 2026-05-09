@@ -18,6 +18,7 @@ import NotFound from './pages/NotFound';
 import VerificationFlow from './components/Verification/VerificationFlow';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import SosArmer from './components/Emergency/SosArmer';
+import TripStartNotifier from './components/Emergency/TripStartNotifier';
 
 function AppRoute({ children, protectedRoute = false }) {
   return protectedRoute ? <ProtectedRoute>{children}</ProtectedRoute> : children;
@@ -86,6 +87,7 @@ function App() {
       <AuthProvider>
         <PwaUpdatePrompt />
         <SosArmer />
+        <TripStartNotifier />
         <AppRoutes />
       </AuthProvider>
     </Router>
