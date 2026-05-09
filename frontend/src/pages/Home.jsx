@@ -147,7 +147,15 @@ export default function Home() {
             SafeCircles
           </p>
           <p className="text-base md:text-lg italic text-[#EAE0C8]/80 leading-relaxed mb-8">
-            "A future where no <span className="text-[#EAE0C8] font-semibold not-italic">WOMAN</span> fears walking home after 8 PM"
+            "A future where no <span className="text-[#EAE0C8] font-semibold not-italic">WOMAN</span> fears walking home after{' '}
+            <span aria-hidden="true" className="relative inline-block text-[#EAE0C8]/65 font-semibold not-italic">
+              7
+              <span
+                className="absolute left-[-18%] right-[-18%] top-1/2 h-[2px] bg-current"
+                style={{ transform: 'translateY(-50%) rotate(-18deg)', transformOrigin: 'center' }}
+              />
+            </span>{' '}
+            <span className="text-[#EAE0C8] font-semibold not-italic">8 PM</span>"
           </p>
           <p className="text-xs uppercase tracking-[0.3em] text-[#EAE0C8]/40">
             Built by TeesMaarKhaCoders
