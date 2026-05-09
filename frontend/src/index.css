@@ -2077,3 +2077,79 @@ canvas,
     max-width: 480px;
   }
 }
+
+/* ───────────── SOS floating action button ─────────────
+ * Always-visible panic button while a trip is armed. Tap-and-hold for 1.5 s
+ * fires the SOS — the filling ring animates during arming. Sits above the
+ * bottom navigation; honours iOS safe-area inset.
+ */
+.sos-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: var(--emergency-red, #dc2626);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.4);
+  border: 0;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  touch-action: manipulation;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sos-fab:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+.sos-fab[data-phase='cooldown'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sos-fab[data-phase='arming'] {
+  transform: scale(1.05);
+}
+.sos-fab[data-phase='firing'] {
+  transform: scale(0.97);
+}
+.sos-fab-label {
+  font-size: 10px;
+  margin-top: 1px;
+}
+.sos-fab-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  pointer-events: none;
+  animation: sosFill 1.5s linear forwards;
+}
+@keyframes sosFill {
+  from {
+    transform: scale(0.9);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sos-fab,
+  .sos-fab-ring {
+    transition: none;
+    animation: none;
+  }
+}

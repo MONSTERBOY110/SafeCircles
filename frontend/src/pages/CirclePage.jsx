@@ -8,7 +8,7 @@ import {
   addDoc, serverTimestamp, writeBatch, updateDoc, arrayUnion
 } from 'firebase/firestore';
 import { MapContainer, TileLayer, Marker, Polyline, Circle as LeafletCircle, useMap } from 'react-leaflet';
-import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2, Bell, PhoneCall, Flag, Send, Star } from 'lucide-react';
+import { AlertCircle, Phone, Share2, AlertTriangle, CheckCircle2, MapPin, Users, Shield, Loader2, PhoneCall, Flag, Send, Star } from 'lucide-react';
 import ngeohash from 'ngeohash';
 import toast from 'react-hot-toast';
 import Header from '../components/Layout/Header';
@@ -82,7 +82,6 @@ export default function CirclePage() {
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isTracking, setIsTracking] = useState(false);
-  const [showFakeCall, setShowFakeCall] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [lastSafetyPing, setLastSafetyPing] = useState(null);
@@ -305,46 +304,40 @@ export default function CirclePage() {
     return () => clearInterval(interval);
   }, [userLocation, userId]);
 
-  // Alert circle
-  const handleAlertCircle = async () => {
-    try {
-      await addDoc(collection(db, 'alerts'), {
-        circleId,
-        triggeredBy: userId,
-        timestamp: serverTimestamp(),
-        type: 'circle_alert',
-      });
-      toast.success('Alert sent to all members');
-    } catch (error) {
-      toast.error('Failed to send alert');
-    }
-  };
-
-  // Fake call
-  const handleFakeCall = () => {
-    setShowFakeCall(true);
-    // Play audio
-    const audio = new Audio('data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==');
-    audio.play().catch(() => {});
-    setTimeout(() => setShowFakeCall(false), 5000);
-  };
-
-  // Share location
+  // Share location: native Android share sheet (WhatsApp / SMS / etc.)
+  // sharing a Google Maps pin to current GPS position. Falls back to clipboard
+  // copy when navigator.share is unavailable, then to a wa.me deep link.
   const handleShareLocation = async () => {
-    const url = `${window.location.origin}/live/${circleId}`;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: 'My SafeCircle Journey',
-          text: 'Track my live location',
-          url,
-        });
+      let lat, lng;
+      if (Array.isArray(userLocation) && userLocation.length === 2) {
+        [lat, lng] = userLocation;
       } else {
-        // Fallback to WhatsApp
-        window.open(`https://wa.me/?text=Tracking my SafeCircle: ${url}`);
+        const pos = await new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000,
+          })
+        );
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
       }
-    } catch (error) {
-      console.error('Share failed:', error);
+      const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+      const text = `SafeCircles — I'm sharing my live location: ${mapsUrl}`;
+
+      if (navigator.share) {
+        await navigator.share({ title: 'My location', text, url: mapsUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        toast.success('Location copied — paste into any chat');
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        console.warn('Share failed:', err);
+        toast.error('Could not share location');
+      }
     }
   };
 
@@ -653,30 +646,6 @@ export default function CirclePage() {
         <div className="emergency-grid">
           <motion.button
             type="button"
-            onClick={handleAlertCircle}
-            className="emergency-card alert"
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-          >
-            <span className="emergency-icon-wrap"><Bell size={18} /></span>
-            <span className="emergency-card-label">Alert Circle</span>
-            <span className="emergency-card-desc">Notify all members now</span>
-          </motion.button>
-          <motion.button
-            type="button"
-            onClick={handleFakeCall}
-            className="emergency-card fake-call"
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-            whileHover={shouldReduceMotion ? undefined : { y: -3 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
-          >
-            <span className="emergency-icon-wrap"><Phone size={18} /></span>
-            <span className="emergency-card-label">Fake Call</span>
-            <span className="emergency-card-desc">Simulate incoming call</span>
-          </motion.button>
-          <motion.button
-            type="button"
             onClick={handleShareLocation}
             className="emergency-card share-location"
             whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
@@ -685,7 +654,7 @@ export default function CirclePage() {
           >
             <span className="emergency-icon-wrap"><Share2 size={18} /></span>
             <span className="emergency-card-label">Share Location</span>
-            <span className="emergency-card-desc">Send via WhatsApp</span>
+            <span className="emergency-card-desc">WhatsApp, SMS, anywhere</span>
           </motion.button>
           <motion.button
             type="button"
@@ -732,17 +701,6 @@ export default function CirclePage() {
           );
         })()}
       </PageTransition>
-
-      {showFakeCall && (
-        <div className="modal-backdrop">
-          <div className="modal-card text-center">
-            <Phone className="mx-auto mb-4 animate-pulse text-[var(--color-600)]" size={56} />
-            <h3 className="profile-name">Incoming Call</h3>
-            <p className="profile-email mb-4">Mom</p>
-            <p className="card-subtitle">"I'm calling the police, stay safe"</p>
-          </div>
-        </div>
-      )}
 
       {showEmergency && (
         <div className="modal-backdrop">
@@ -1014,20 +972,6 @@ export default function CirclePage() {
           );
         })()}
       </main>
-
-      {/* Fake Call Modal */}
-      {showFakeCall && (
-        <div className="fixed inset-0 bg-[#0B132B]/70 flex items-center justify-center z-50">
-          <div className="bg-[#111A3A]/70 backdrop-blur-md border border-white/5 rounded-2xl p-8 text-center max-w-sm">
-            <Phone className="w-16 h-16 text-blue-400 mx-auto mb-4 animate-pulse" />
-            <h3 className="text-2xl font-bold text-[#eae0c8] mb-2">Incoming Call</h3>
-            <p className="text-[#eae0c8]/60 mb-6">Mom</p>
-            <p className="text-sm text-blue-300">
-              "I'm calling the police, stay safe"
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Emergency Modal */}
       {showEmergency && (

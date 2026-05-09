@@ -216,6 +216,18 @@ The app is a Workbox-based PWA via `vite-plugin-pwa` and a separately-registered
 - `devOptions.enabled: false` keeps the Workbox SW off during `npm run dev` so HMR isn't confused. Test the PWA via `npm run preview` after a build.
 - The FCM SW (`firebase-messaging-sw.js`) is served raw in dev with placeholders intact — `firebase.initializeApp` will fail inside the SW. Foreground messaging via the SDK still works; only background pushes need the build-substituted file.
 
+### Emergency / SOS architecture
+
+The CirclePage's emergency grid is **two cards only**: Share Location + Emergency Call. Alert Circle and Fake Call were intentionally removed; do not re-add them. Share Location is a single handler in `frontend/src/pages/CirclePage.jsx` that pulls current GPS, builds a `https://www.google.com/maps?q=<lat>,<lng>` URL, and opens the native Android share sheet (`navigator.share`) → fallback to clipboard → fallback to `wa.me/?text=`. Emergency Call modal still has Police 100 + Women's Helpline 1090.
+
+The **in-app SOS** is a global FAB (`frontend/src/components/Emergency/SosButton.jsx`) mounted by `SosArmer.jsx`, which itself sits inside `<AuthProvider>` in `App.jsx`. The armer subscribes to `trips where userId == uid` and shows the FAB whenever any trip is in `pending`/`matched`/`active`. Tap-and-hold for 1.5 s fires: writes `alerts/{id} { type: 'sos', triggeredBy, triggeredByName, circleId, location, timestamp }`, sets `users/<uid>.sos_active=true` + `sos_started_at`, then opens a prefilled `sms:` URI to the user's saved personal contacts. 20 s cooldown after fire. Releasing before 1.5 s cancels with no side effects.
+
+**Personal emergency contacts** live on `users/<uid>.emergency_contacts` as `[{name, phone}]`, max 5, edited from the Profile page (`EmergencyContacts.jsx`). The field is unlocked in `firestore.rules` (only `gender`/`kycProvider`/`isVerified`/`verification_status` are locked). The SMS opens via `buildSosSmsHref()` in `frontend/src/utils/sos.js` — comma-separated recipients work on Android Chrome / Samsung Internet; iOS Safari uses ampersand instead and is currently a known limitation.
+
+**OS handoff for true background SOS**: a PWA cannot intercept the hardware power button or send SMS without a user tap — both are OS-privileged. The `AndroidSosSetupCard.jsx` on Profile guides the user to enable Android's built-in **Settings → Safety & Emergency → Emergency SOS** (power-button × 5 / 3 → SMS+location to phone-saved contacts), which is literally the "background power-button SOS" feature. The card's deep-link button is best-effort (Android intent filters reject most web-initiated Settings navigations); the on-screen steps are the real instructions.
+
+The `alerts` collection now has a `type: 'sos'` shape. Sending an FCM push to circle members on `alerts/{id}` create with `type === 'sos'` is a Cloud Function follow-up (sketched in `DEPLOY_PWA.md` step 7). The frontend writes the doc; the function fans out the push.
+
 ### Tailwind config quirk
 
 `frontend/postcss.config.js` explicitly pins `tailwindcss: { config: <absolute-path-to-tailwind.config.js> }` because the build runs from the repo root, so PostCSS's auto-discovery doesn't find `frontend/tailwind.config.js`. The Tailwind config itself uses `path.resolve(__dirname, ...)` then forward-slash normalisation — backslashes are escape characters in glob syntax, so a raw `D:\…\src\**\*.{js,jsx}` pattern fails to match anything on Windows. Don't simplify either of these without testing on Windows.

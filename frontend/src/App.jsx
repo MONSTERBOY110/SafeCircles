@@ -17,6 +17,7 @@ import TripsPage from './pages/TripsPage';
 import NotFound from './pages/NotFound';
 import VerificationFlow from './components/Verification/VerificationFlow';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
+import SosArmer from './components/Emergency/SosArmer';
 
 function AppRoute({ children, protectedRoute = false }) {
   return protectedRoute ? <ProtectedRoute>{children}</ProtectedRoute> : children;
@@ -84,6 +85,7 @@ function App() {
     <Router>
       <AuthProvider>
         <PwaUpdatePrompt />
+        <SosArmer />
         <AppRoutes />
       </AuthProvider>
     </Router>
